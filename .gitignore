@@ -1,0 +1,9 @@
+.DS_Store
+.firebase/
+.wrangler/
+d1_init.log
+xlsx_cache.js
+firebase_config.json
+node_modules/
+dist/
+*.log

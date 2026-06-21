@@ -1,0 +1,2767 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <script>
+    // Global Diagnostic Error Banner
+    window.onerror = function(message, source, lineno, colno, error) {
+      const div = document.createElement('div');
+      div.style.position = 'fixed'; div.style.top = '10px'; div.style.left = '10px'; div.style.right = '10px';
+      div.style.background = '#ffdddd'; div.style.color = '#ff0000'; div.style.border = '2px solid #ff0000';
+      div.style.padding = '15px'; div.style.borderRadius = '8px'; div.style.zIndex = '99999';
+      div.style.fontFamily = 'monospace'; div.style.fontSize = '12px'; div.style.lineHeight = '1.4';
+      div.innerHTML = '<strong>[JS ERROR]</strong> ' + message + '<br><small>ที่: ' + source + ':' + lineno + '</small>';
+      document.body.appendChild(div);
+      return false;
+    };
+    window.onunhandledrejection = function(event) {
+      const div = document.createElement('div');
+      div.style.position = 'fixed'; div.style.top = '10px'; div.style.left = '10px'; div.style.right = '10px';
+      div.style.background = '#ffdddd'; div.style.color = '#ff0000'; div.style.border = '2px solid #ff0000';
+      div.style.padding = '15px'; div.style.borderRadius = '8px'; div.style.zIndex = '99999';
+      div.style.fontFamily = 'monospace'; div.style.fontSize = '12px'; div.style.lineHeight = '1.4';
+      div.innerHTML = '<strong>[Promise Rejection]</strong> ' + (event.reason ? event.reason.message || event.reason : 'Unknown rejection') + '<br><small>' + (event.reason && event.reason.stack ? event.reason.stack.substring(0, 150) + '...' : '') + '</small>';
+      document.body.appendChild(div);
+    };
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบบริหารจัดการชั้นเรียน</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Sarabun:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Cloudflare Sync Integration -->
+  <link rel="stylesheet" href="style.css">
+  <script>
+    if (localStorage.getItem('dark_theme') === 'true') {
+      document.documentElement.classList.add('dark-theme');
+      document.addEventListener('DOMContentLoaded', () => {
+        document.body.classList.add('dark-theme');
+        const dmBtn = document.getElementById('darkmode-toggle-btn');
+        if (dmBtn) dmBtn.textContent = '☀️';
+      });
+    }
+  </script>
+</head>
+
+<body>
+  <!-- หน้าแรกสำหรับจัดการปีการศึกษา (Academic Year Management) -->
+  <div id="semester-select-screen" style="display: flex; min-height: 100vh; align-items: center; justify-content: center; background: var(--bg); padding: 20px; font-family: 'Sarabun', sans-serif;">
+    <div class="card" style="width: 100%; max-width: 550px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); border-radius: 16px; background: var(--surface); border: 1px solid var(--border);">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <span style="font-size: 44px; display: inline-block; margin-bottom: 8px;">🏫</span>
+        <h1 style="font-size: 20px; font-weight: 800; color: var(--accent); margin-top: 5px; margin-bottom: 4px; font-family: 'Sarabun', sans-serif;">ระบบบริหารจัดการชั้นเรียน</h1>
+        <p style="font-size: 12px; color: var(--text2); font-family: 'Sarabun', sans-serif;">กรุณาเลือกปีการศึกษาเพื่อเข้าใช้งาน หรือสร้างปีการศึกษาใหม่เพื่อเริ่มระบบ</p>
+      </div>
+
+      <!-- ฟอร์มสร้างปีการศึกษาใหม่ -->
+      <div class="card" style="margin-bottom: 20px; border: 1.5px dashed var(--border); background: var(--surface2);">
+        <div class="card-body" style="padding: 16px;">
+          <h4 style="font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; font-family: 'Sarabun', sans-serif;">➕ สร้างปีการศึกษาใหม่</h4>
+          <div class="form-row" style="margin-bottom: 12px;">
+            <div class="form-group">
+              <label style="font-family: 'Sarabun', sans-serif;">ปีการศึกษา (พ.ศ.) *</label>
+              <input type="text" id="new-sem-year" class="inp" placeholder="เช่น 2569" value="2569" style="font-weight: 600; font-family: 'Sarabun', sans-serif;">
+            </div>
+            <!-- Keep hidden for backwards compatibility -->
+            <select id="new-sem-term" style="display: none;">
+              <option value="1" selected>1</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="window.handleCreateSemester()" style="width: 100%; justify-content: center; font-weight: 700; height: 36px; font-family: 'Sarabun', sans-serif;">
+            ✨ สร้างและเปิดใช้งานปีการศึกษา
+          </button>
+        </div>
+      </div>
+
+      <!-- รายการปีการศึกษาที่มีอยู่ -->
+      <div>
+        <h4 style="font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; font-family: 'Sarabun', sans-serif;">
+          <span>📋 ปีการศึกษาที่เปิดใช้งานอยู่</span>
+          <span id="sem-badge-count" class="badge badge-info" style="font-size: 11px;">0 ปีการศึกษา</span>
+        </h4>
+        <div id="semester-list-container" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          <!-- รายการปีการศึกษาทั้งหมดจะถูกสร้างผ่าน JS -->
+        </div>
+      </div>
+
+      <!-- ส่วนแสดงผลถังขยะปีการศึกษาด้านล่าง -->
+      <div style="margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px;">
+        <button class="btn btn-outline btn-sm" id="btn-toggle-trash" onclick="window.toggleTrashBin()" style="font-size: 11px; display: flex; align-items: center; gap: 6px; font-family: 'Sarabun', sans-serif; cursor: pointer; background: transparent; border-color: var(--border); color: var(--text2);">
+          🗑️ ดูถังขยะปีการศึกษา (<span id="trash-sem-count">0</span>)
+        </button>
+        <div id="trash-bin-section" style="display: none; margin-top: 10px; max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          <!-- รายการถังขยะจะถูกเรนเดอร์ผ่าน JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app" style="display: none;">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <h1 style="font-family: 'Sarabun', sans-serif;">ระบบบริหารจัดการ<br>ชั้นเรียน</h1>
+        <p style="font-family: 'Sarabun', sans-serif;">Classroom Management System</p>
+        <div id="active-semester-badge" style="margin-top: 8px; display: inline-block; font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-light); padding: 4px 10px; border-radius: 12px; font-family: 'Sarabun', sans-serif;">
+          ปีการศึกษา -
+        </div>
+      </div>
+      <div style="padding: 10px 8px; border-bottom: 1px solid var(--border)">
+        <button class="btn btn-outline" onclick="window.backToSemesterSelect()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; padding: 6px 10px; border-radius: 8px; font-weight: 700; background: var(--bg); color: var(--text2); font-family: 'Sarabun', sans-serif;">
+          <span>←</span> เปลี่ยนปีการศึกษา
+        </button>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-label">ตั้งค่าระบบ</div>
+          <button class="nav-item active" onclick="goto('setup-rooms')"><span class="nav-dot"
+              style="background:var(--accent)"></span>ห้องเรียน / นักเรียน</button>
+          <button class="nav-item" onclick="goto('setup-subjects')"><span class="nav-dot"
+              style="background:var(--accent)"></span>จัดการรายวิชา</button>
+          <button class="nav-item" onclick="goto('setup-settings')"><span class="nav-dot"
+              style="background:var(--accent)"></span>ตั้งค่าระบบ & ความจำ</button>
+        </div>
+        <div class="nav-section">
+          <div class="nav-label">ข้อมูลนักเรียน</div>
+          <button class="nav-item" onclick="goto('attendance')"><span
+              class="nav-dot dot-purple"></span>การเช็กชื่อ</button>
+          <button class="nav-item" onclick="goto('behavior')"><span class="nav-dot dot-purple"></span>พฤติกรรม</button>
+          <button class="nav-item" onclick="goto('student-profile-page')"><span
+              class="nav-dot dot-purple"></span>ข้อมูลรายบุคคล</button>
+        </div>
+        <div class="nav-section">
+          <div class="nav-label">วัดและประเมินผล</div>
+          <button class="nav-item" onclick="goto('teaching')"><span class="nav-dot dot-amber"></span>✏️ งาน & คะแนนเก็บ</button>
+          <button class="nav-item" onclick="goto('report')"><span class="nav-dot dot-amber"></span>📄 รายงานผลรายห้อง</button>
+        </div>
+        <div class="nav-section">
+          <div class="nav-label">ภาพรวม</div>
+          <button class="nav-item" onclick="goto('dashboard')"><span class="nav-dot dot-coral"></span>🏠 Dashboard</button>
+          <button class="nav-item" onclick="goto('live-mode')"><span class="nav-dot dot-coral"></span>🎥 โหมดสอนสด</button>
+          <button class="nav-item" onclick="goto('report-export')"><span class="nav-dot dot-coral"></span>📊 รายงานผลและส่งออก</button>
+        </div>
+      </nav>
+      <select id="class-select" style="display:none" onchange="switchClass(this.value)"></select>
+      
+      <!-- บัญชีผู้ใช้มุมล่างซ้าย (User Profile with Dropdown Menu) -->
+      <div class="sidebar-bottom" style="position: relative;">
+        <div id="sidebar-account-info" class="sidebar-profile-btn logged-out" onclick="window.toggleProfileDropdown(event)" title="คลิกเพื่อเข้าสู่ระบบ">
+          <div id="sidebar-avatar-container" class="profile-avatar-circle">
+            👤
+          </div>
+          <div style="display: flex; flex-direction: column; min-width: 0; text-align: left; gap: 2px; flex: 1;">
+            <span id="sidebar-profile-name" style="font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: none; color: var(--text);">คุณครู</span>
+            <span id="sidebar-user-email" style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Sarabun', sans-serif;">เข้าสู่ระบบ Cloud Sync</span>
+          </div>
+        </div>
+        
+        <!-- Profile Dropdown Popover Menu -->
+        <div id="profile-dropdown-menu" class="profile-dropdown">
+          <div id="dropdown-profile-header" class="profile-dropdown-header">
+            <div id="dropdown-display-name" class="profile-dropdown-name">คุณครู</div>
+            <div id="dropdown-user-email" class="profile-dropdown-email">campingroom@gmail.com</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <button onclick="window.gotoSettingsFromProfile()" class="profile-dropdown-btn">
+              ตั้งค่าระบบ & ความจำ
+            </button>
+            <button onclick="window.backToSemesterSelect(); document.getElementById('profile-dropdown-menu').style.display='none';" class="profile-dropdown-btn">
+              เปลี่ยนปีการศึกษา
+            </button>
+            <button onclick="window.firebaseLogout()" class="profile-dropdown-btn logout">
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="window.toggleSidebar(false)"></div>
+
+    <div class="main">
+      <!-- SYNC BAR -->
+      <div class="sync-bar">
+        <div class="sync-status"
+          style="display:flex;align-items:center;gap:6px;background:var(--teal-light);color:var(--teal);padding:4px 12px;border-radius:20px;font-weight:700;font-size:11px;box-shadow:0 0 10px rgba(13,122,110,.08)">
+          ✨ โหมดพรีวิวทดลองใช้งาน (Local Offline Preview)
+        </div>
+        <div id="today-date-display" style="font-size:12px;color:var(--text2);font-weight:700;margin-left:8px;font-family:Sarabun,sans-serif"></div>
+        <div style="flex:1"></div>
+
+        <!-- Semester display filter selection -->
+        <div id="semester-filter-container" style="display: flex; align-items: center; gap: 8px; margin-right: 12px;">
+          <span style="font-size: 11px; font-weight: 700; color: var(--text2); font-family: Sarabun, sans-serif;">ภาคเรียนแสดงผล:</span>
+          <div class="semester-segmented-control" id="semester-segmented-filter">
+            <button class="segment-btn active" data-value="1" onclick="window.setActiveSemesterFilter('1')">เทอม 1</button>
+            <button class="segment-btn" data-value="2" onclick="window.setActiveSemesterFilter('2')">เทอม 2</button>
+            <button class="segment-btn" data-value="all" onclick="window.setActiveSemesterFilter('all')">ทั้งปีการศึกษา</button>
+          </div>
+        </div>
+
+        <button id="save-all-btn" onclick="saveCurrentPage()"
+          style="display:flex;align-items:center;gap:6px;padding:6px 16px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:Sarabun,sans-serif;transition:all .15s"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          💾 บันทึกในเครื่อง
+        </button>
+
+        <button id="darkmode-toggle-btn" onclick="window.toggleDarkMode()"
+          style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:16px;cursor:pointer;font-family:Sarabun,sans-serif;transition:all .2s;flex-shrink:0"
+          onmouseover="this.style.background='var(--bg)';this.style.borderColor='var(--accent)'" onmouseout="this.style.background='var(--surface)';this.style.borderColor='var(--border)'"
+          title="สลับโหมดมืด/สว่าง">
+          🌙
+        </button>
+
+        <div style="width:1px;height:20px;background:var(--border)"></div>
+
+        <button id="btn-undo" onclick="window.undo()" disabled
+          style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;cursor:not-allowed;font-family:Sarabun,sans-serif;opacity:0.4;transition:all .15s"
+          onmouseover="if(!this.disabled)this.style.background='var(--bg)'" onmouseout="if(!this.disabled)this.style.background='var(--surface)'"
+          title="ย้อนกลับการแก้ไขล่าสุด (Ctrl+Z หรือ Cmd+Z)">
+          ↩ ย้อนกลับ
+        </button>
+        <button id="btn-redo" onclick="window.redo()" disabled
+          style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;cursor:not-allowed;font-family:Sarabun,sans-serif;opacity:0.4;transition:all .15s"
+          onmouseover="if(!this.disabled)this.style.background='var(--bg)'" onmouseout="if(!this.disabled)this.style.background='var(--surface)'"
+          title="ทำซ้ำการแก้ไขที่ยกเลิกไป (Ctrl+Y หรือ Cmd+Y)">
+          ↪ ทำซ้ำ
+        </button>
+
+
+        <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="importAllData(this)">
+        <span id="sync-time" style="font-size:11px;color:var(--text3);white-space:nowrap"></span>
+      </div>
+
+      <div class="topbar">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button id="sidebar-toggle-btn" class="btn btn-outline" onclick="window.toggleSidebar()">☰</button>
+          <h2 id="page-title" style="margin: 0;">ห้องเรียน & นักเรียน</h2>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; position: relative;">
+          <div class="topbar-right" id="topbar-actions"></div>
+          
+          <!-- บัญชีผู้ใช้แถบด้านบน (Topbar User Profile Avatar) -->
+          <div id="topbar-user-profile" class="topbar-profile-avatar logged-out" onclick="window.toggleTopbarDropdown(event)" title="คลิกเพื่อเข้าสู่ระบบ">
+            <div id="topbar-avatar-container" class="profile-avatar-circle" style="width: 32px; height: 32px; font-size: 14px;">
+              👤
+            </div>
+            
+            <!-- Topbar Profile Dropdown Popover Menu -->
+            <div id="topbar-profile-dropdown-menu" class="profile-dropdown topbar-dropdown-custom">
+              <div id="topbar-dropdown-profile-header" class="profile-dropdown-header">
+                <div id="topbar-dropdown-display-name" class="profile-dropdown-name">คุณครู</div>
+                <div id="topbar-dropdown-user-email" class="profile-dropdown-email">campingroom@gmail.com</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <button onclick="window.gotoSettingsFromProfile()" class="profile-dropdown-btn">
+                  ตั้งค่าระบบ & ความจำ
+                </button>
+                <button onclick="window.backToSemesterSelect(); document.getElementById('topbar-profile-dropdown-menu').style.display='none';" class="profile-dropdown-btn">
+                  เปลี่ยนปีการศึกษา
+                </button>
+                <button onclick="window.firebaseLogout()" class="profile-dropdown-btn logout">
+                  Sign out
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <!-- ===== SETUP BANNER (HIDDEN FOR PREVIEW MODE) ===== -->
+
+
+        <!-- ===== SETUP: ROOMS + STUDENTS ===== -->
+        <div class="panel" id="panel-setup-rooms">
+          <div class="stats-row">
+            <div class="stat-card stat-purple">
+              <div class="label">ห้องเรียนทั้งหมด</div>
+              <div class="value" id="cr-total">0</div>
+            </div>
+            <div class="stat-card stat-teal">
+              <div class="label">นักเรียนทั้งหมด</div>
+              <div class="value" id="all-students-total">0</div>
+            </div>
+            <div class="stat-card stat-amber">
+              <div class="label">ชาย</div>
+              <div class="value" id="all-students-male">0</div>
+            </div>
+            <div class="stat-card stat-coral">
+              <div class="label">หญิง</div>
+              <div class="value" id="all-students-female">0</div>
+            </div>
+          </div>
+
+          <div class="rwd-grid-sidebar-left">
+            <!-- LEFT: Room list -->
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <!-- Room list -->
+              <div class="card" style="margin-bottom:0">
+                <div class="card-header" style="padding:10px 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px">
+                  <h3 style="font-size:13px; margin:0">🏫 ห้องเรียนทั้งหมด</h3>
+                  <div style="display:flex; gap:6px; align-items:center">
+                    <input class="inp" id="search-room" placeholder="ค้นหา..."
+                      style="width:80px;font-size:12px;padding:4px 8px" oninput="renderRoomList()">
+                    <button class="btn btn-primary btn-sm" onclick="window.openCreateRoomModal()" style="font-size:11px; padding:4px 8px; border-radius:6px; font-weight:600">+ สร้างห้องเรียน</button>
+                  </div>
+                </div>
+                <div style="padding:0">
+                  <table class="tbl" style="font-size:12px">
+                    <thead>
+                      <tr>
+                        <th>ห้อง</th>
+                        <th class="ctr">นักเรียน</th>
+                        <th class="ctr">จัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody id="room-tbody-mini"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT: Student list -->
+            <div class="card" style="margin-bottom:0">
+              <div class="card-header"
+                style="display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:12px 16px">
+                <!-- Row 1: Title and Actions -->
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+                  <h3 id="student-card-title" style="margin:0;font-size:14px;font-weight:600">เลือกห้องเรียน</h3>
+                  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                    <button id="btn-delete-selected-stds" class="btn btn-danger btn-sm"
+                      style="display:none;font-weight:600;font-size:11px;padding:5px 12px;border-radius:8px"
+                      onclick="deleteSelectedStudents()">
+                      🗑 ลบที่เลือก (<span id="selected-stds-count">0</span>)
+                    </button>
+                    <input class="inp" id="search-student" placeholder="ค้นหาชื่อ..." style="width:140px;font-size:12px"
+                      oninput="renderStudents()">
+                    <select id="student-view-mode" class="inp" style="width:110px;font-size:12px"
+                      onchange="renderStudents()">
+                      <option value="all">ทั้งหมด</option>
+                      <option value="male">เฉพาะชาย</option>
+                      <option value="female">เฉพาะหญิง</option>
+                      <option value="health">ระบุชื่อเล่น</option>
+                    </select>
+                  </div>
+                </div>
+                <!-- Row 2: Room Tabs -->
+                <div id="student-room-tabs" style="display:flex;gap:5px;flex-wrap:wrap;padding-top:4px"></div>
+              </div>
+
+              <!-- Student Mini Stats Dashboard -->
+              <div id="student-mini-stats-dashboard" style="display:flex; gap:16px; padding:10px 16px; background: rgba(255, 255, 255, 0.4); border-bottom: 1px solid var(--border); align-items:center; flex-wrap:wrap;">
+                <div style="font-size:12px; font-weight:600; color:var(--text2); display:flex; align-items:center; gap:6px">
+                  📊 สถิติห้องเรียน:
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                  <div style="display:flex; align-items:center; gap:6px; font-size:12px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:4px 10px;">
+                    <span style="font-size:14px;">👥</span> 
+                    <span style="color:var(--text2); font-weight:500;">นักเรียนทั้งหมด:</span> 
+                    <strong id="mini-stat-total" style="color:var(--accent); font-weight:700;">0</strong> คน
+                  </div>
+                  <div style="display:flex; align-items:center; gap:6px; font-size:12px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:4px 10px;">
+                    <span style="font-size:14px;">👦</span> 
+                    <span style="color:var(--text2); font-weight:500;">ชาย:</span> 
+                    <strong id="mini-stat-male" style="color:var(--accent); font-weight:700;">0</strong> คน
+                  </div>
+                  <div style="display:flex; align-items:center; gap:6px; font-size:12px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:4px 10px;">
+                    <span style="font-size:14px;">👧</span> 
+                    <span style="color:var(--text2); font-weight:500;">หญิง:</span> 
+                    <strong id="mini-stat-female" style="color:var(--accent); font-weight:700;">0</strong> คน
+                  </div>
+                </div>
+              </div>
+
+              <div style="padding:0">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th style="width:40px;text-align:center;vertical-align:middle">
+                        <input type="checkbox" id="std-select-all" onchange="toggleSelectAllStudents(this.checked)"
+                          style="width:16px;height:16px;cursor:pointer;vertical-align:middle">
+                      </th>
+                      <th id="th-std-no" onclick="window.sortStudents('no')" style="cursor:pointer;user-select:none;transition:color .15s">เลขที่</th>
+                      <th id="th-std-id" onclick="window.sortStudents('id')" style="cursor:pointer;user-select:none;transition:color .15s;color:var(--text3);font-size:11px">รหัสประจำตัว</th>
+                      <th id="th-std-name" onclick="window.sortStudents('name')" style="cursor:pointer;user-select:none;transition:color .15s">ชื่อ-นามสกุล</th>
+                      <th id="th-std-gender" onclick="window.sortStudents('gender')" style="cursor:pointer;user-select:none;transition:color .15s">เพศ</th>
+                      <th id="th-std-phone" onclick="window.sortStudents('phone')" style="cursor:pointer;user-select:none;transition:color .15s">โทร ผปค.</th>
+                      <th id="th-std-health" onclick="window.sortStudents('health')" style="cursor:pointer;user-select:none;transition:color .15s">ชื่อเล่น</th>
+                      <th class="ctr">จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody id="student-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ===== SETUP: SUBJECTS ===== -->
+        <div class="panel" id="panel-setup-subjects">
+          <div class="card" style="margin-bottom:0">
+            <div class="card-header">
+              <h3>รายวิชาทั้งหมด</h3>
+              <div style="display:flex;gap:8px;align-items:center">
+                <button id="btn-delete-selected-subs" class="btn btn-danger btn-sm"
+                  style="display:none;font-weight:600;font-size:12px;padding:5px 12px;border-radius:8px"
+                  onclick="deleteSelectedSubjects()">
+                  🗑 ลบที่เลือก (<span id="selected-subs-count">0</span>)
+                </button>
+                <input class="inp" id="search-subj" placeholder="ค้นหาวิชา..." style="width:150px;font-size:12px"
+                  oninput="renderSubjectList()">
+                <button class="btn btn-primary btn-sm" onclick="window.openCreateSubjectModal()"
+                  style="font-size:11px; padding:4px 8px; border-radius:6px; font-weight:600">
+                  + เพิ่มรายวิชา
+                </button>
+              </div>
+            </div>
+            <div style="padding:0">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th style="width:40px;text-align:center;vertical-align:middle">
+                      <input type="checkbox" id="subj-select-all" onchange="toggleSelectAllSubjects(this.checked)"
+                        style="width:16px;height:16px;cursor:pointer;vertical-align:middle">
+                    </th>
+                    <th id="th-subj-code" onclick="window.sortSubjects('code')" style="cursor:pointer;user-select:none;transition:color .15s">รหัส</th>
+                    <th id="th-subj-name" onclick="window.sortSubjects('name')" style="cursor:pointer;user-select:none;transition:color .15s">ชื่อวิชา</th>
+                    <th id="th-subj-term" onclick="window.sortSubjects('term')" style="cursor:pointer;user-select:none;transition:color .15s">ภาคเรียน</th>
+                    <th id="th-subj-teacher" onclick="window.sortSubjects('teacher')" style="cursor:pointer;user-select:none;transition:color .15s">ครูผู้สอน</th>
+                    <th id="th-subj-credits" onclick="window.sortSubjects('credits')" style="cursor:pointer;user-select:none;transition:color .15s" class="ctr">หน่วยกิต</th>
+                    <th id="th-subj-rooms" onclick="window.sortSubjects('rooms')" style="cursor:pointer;user-select:none;transition:color .15s">ห้องที่เรียน</th>
+                    <th class="ctr">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="subj-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="height:20px"></div>
+          <div class="card" style="margin-bottom:0">
+            <div class="card-header">
+              <h3>📅 ตารางสอนครู (ตารางเรียน 7 คาบ)</h3>
+              <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:13px;font-weight:600;color:var(--text2)">ครูผู้สอน:</span>
+                  <select id="dnd-teacher" class="inp" style="min-width:160px;font-size:12px" onchange="onDndTeacherChange()">
+                    <option value="">-- เลือกครูผู้สอน --</option>
+                  </select>
+                </div>
+                <div style="flex:1"></div>
+                <div id="dnd-unsaved-badge" style="display:none;background:var(--amber-light);color:var(--amber);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">
+                  ● มีการเปลี่ยนแปลงที่ยังไม่บันทึก
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="clearDndTeacher()" style="color:var(--red);font-size:11px">🗑 ล้างตาราง</button>
+                <button class="btn btn-primary btn-sm" onclick="saveDndTeacherSchedule()" style="font-size:11px;font-weight:600">💾 บันทึกตาราง</button>
+              </div>
+            </div>
+            
+            <div id="dnd-builder" style="display:none;gap:14px;padding:16px;align-items:start" class="dnd-layout">
+              <div style="width:280px;display:flex;flex-direction:column;gap:14px;flex-shrink:0">
+                <div class="card" style="margin-bottom:0">
+                  <div class="card-header" style="padding:10px 14px">
+                    <h3 style="font-size:13px">📚 รายวิชาที่สอน</h3>
+                    <span style="font-size:11px;color:var(--text3)">ลากไปวางในตาราง</span>
+                  </div>
+                  <div id="dnd-subject-list" style="padding:10px;display:flex;flex-direction:column;gap:7px;min-height:80px;max-height:220px;overflow-y:auto"></div>
+                </div>
+                
+                <div class="card" style="margin-bottom:0">
+                  <div class="card-header" style="padding:10px 14px">
+                    <h3 style="font-size:13px">⏰ เวลาเรียนแต่ละคาบ</h3>
+                    <span style="font-size:11px;color:var(--text3)">ปรับเวลาเรียน 7 คาบ</span>
+                  </div>
+                  <div id="period-settings" style="padding:10px;display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto"></div>
+                </div>
+              </div>
+
+              <div class="card" style="margin-bottom:0;flex:1;overflow:hidden">
+                <div class="card-header" style="padding:10px 16px">
+                  <h3 id="dnd-timetable-title" style="font-size:13px">ตารางสอน</h3>
+                  <span style="font-size:11px;color:var(--text3)">วางวิชาในช่องว่าง • กดที่วิชาในตารางเพื่อลบ</span>
+                </div>
+                <div style="overflow-x:auto">
+                  <div id="dnd-grid" style="padding:10px;min-width:600px"></div>
+                </div>
+              </div>
+            </div>
+
+            <div id="dnd-empty" style="text-align:center;padding:48px;color:var(--text3)">
+              <div style="font-size:40px;margin-bottom:10px">📅</div>
+              <div style="font-size:14px;font-weight:500">เลือกครูผู้สอนเพื่อเริ่มกำหนดตารางสอน</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== SETUP: SETTINGS & BACKUPS ===== -->
+        <div class="panel" id="panel-setup-settings">
+          <div class="rwd-grid-2col">
+            <!-- LEFT COLUMN: Main Configurations and Teacher Profile -->
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <!-- Card 0: Semester Date Configuration -->
+              <div class="card" style="margin-bottom:0">
+                <div class="card-header">
+                  <h3>ตั้งค่าวันเปิด-ปิดภาคเรียน</h3>
+                </div>
+                <div class="card-body">
+                  <div class="form-row cols-2" style="margin-bottom: 12px">
+                    <div class="form-group">
+                      <label style="font-size:11px;font-weight:600;color:var(--text2)">วันเปิดเรียน เทอม 1</label>
+                      <input type="date" class="inp" id="sys-sem1-start">
+                    </div>
+                    <div class="form-group">
+                      <label style="font-size:11px;font-weight:600;color:var(--text2)">วันปิดเรียน เทอม 1</label>
+                      <input type="date" class="inp" id="sys-sem1-end">
+                    </div>
+                  </div>
+                  <div class="form-row cols-2" style="margin-bottom: 12px">
+                    <div class="form-group">
+                      <label style="font-size:11px;font-weight:600;color:var(--text2)">วันเปิดเรียน เทอม 2</label>
+                      <input type="date" class="inp" id="sys-sem2-start">
+                    </div>
+                    <div class="form-group">
+                      <label style="font-size:11px;font-weight:600;color:var(--text2)">วันปิดเรียน เทอม 2</label>
+                      <input type="date" class="inp" id="sys-sem2-end">
+                    </div>
+                  </div>
+                  <div style="margin-top:16px">
+                    <button class="btn btn-primary" onclick="window.saveSemesterDates()" style="background:var(--green)">
+                      <span style="font-size:14px; margin-right:4px">✓</span> บันทึกวันเปิด-ปิดเรียน
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 1: Semester and Grading Scale Configuration -->
+              <div class="card" style="margin-bottom:0">
+                <div class="card-header">
+                  <h3>ตั้งค่าเกรด</h3>
+                </div>
+                <div class="card-body">
+                  <div style="margin-bottom:8px">
+                    <label style="font-size:11px;font-weight:600;color:var(--text2)">เกณฑ์เกรดสะสม (คะแนนต่ำสุดที่ผ่านในแต่ละเกรด)</label>
+                  </div>
+                  <div class="rwd-grid-2col-compact">
+                    <div style="display:flex; align-items:center; gap:8px">
+                      <label style="font-size:12px; min-width:45px; font-weight:600">เกรด 4:</label>
+                      <input type="number" class="inp" id="sys-grade-4" style="width:100%" value="80">
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px">
+                      <label style="font-size:12px; min-width:45px; font-weight:600">เกรด 3.5:</label>
+                      <input type="number" class="inp" id="sys-grade-35" style="width:100%" value="75">
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px">
+                      <label style="font-size:12px; min-width:45px; font-weight:600">เกรด 3:</label>
+                      <input type="number" class="inp" id="sys-grade-3" style="width:100%" value="70">
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px">
+                      <label style="font-size:12px; min-width:45px; font-weight:600">เกรด 2.5:</label>
+                      <input type="number" class="inp" id="sys-grade-25" style="width:100%" value="65">
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px">
+                      <label style="font-size:12px; min-width:45px; font-weight:600">เกรด 2:</label>
+                      <input type="number" class="inp" id="sys-grade-2" style="width:100%" value="60">
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px">
+                      <label style="font-size:12px; min-width:45px; font-weight:600">เกรด 1.5:</label>
+                      <input type="number" class="inp" id="sys-grade-15" style="width:100%" value="55">
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px">
+                      <label style="font-size:12px; min-width:45px; font-weight:600">เกรด 1:</label>
+                      <input type="number" class="inp" id="sys-grade-1" style="width:100%" value="50">
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px">
+                      <label style="font-size:12px; min-width:45px; font-weight:600">เกรด 0:</label>
+                      <input type="number" class="inp" id="sys-grade-0" style="width:100%" value="0" readonly disabled>
+                    </div>
+                  </div>
+                  <div style="margin-top:16px">
+                    <button class="btn btn-primary" onclick="window.saveSystemSettings()" style="background:var(--green)">
+                      <span style="font-size:14px; margin-right:4px">✓</span> บันทึกค่าตั้งค่าระบบ
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2: Teacher Profile and Affiliation -->
+              <div class="card" style="margin-bottom:0">
+                <div class="card-header">
+                  <h3>ข้อมูลครูและสังกัด (สำหรับพิมพ์ ปพ.5)</h3>
+                </div>
+                <div class="card-body">
+                  <div class="form-row cols-2">
+                    <div class="form-group">
+                      <label>ชื่อ-นามสกุลคุณครู</label>
+                      <input type="text" class="inp" id="sys-teacher-name" value="Kosit Singchoo">
+                    </div>
+                    <div class="form-group">
+                      <label>ตำแหน่ง/วิทยฐานะ</label>
+                      <input type="text" class="inp" id="sys-teacher-rank" value="ครูผู้ช่วย">
+                    </div>
+                  </div>
+                  <div class="form-row cols-2">
+                    <div class="form-group">
+                      <label>กลุ่มสาระการเรียนรู้</label>
+                      <input type="text" class="inp" id="sys-teacher-subject-group" value="คณิตศาสตร์">
+                    </div>
+                    <div class="form-group">
+                      <label>ชื่อโรงเรียน</label>
+                      <input type="text" class="inp" id="sys-school-name" value="โรงเรียนบ้านหนองสระพังโนนสะอาด">
+                    </div>
+                  </div>
+                  <div class="form-row cols-2">
+                    <div class="form-group">
+                      <label>สำนักงานเขตพื้นที่การศึกษา</label>
+                      <input type="text" class="inp" id="sys-area-office" placeholder="เช่น ขอนแก่น เขต 1" value="">
+                    </div>
+                    <div class="form-group">
+                      <label>จังหวัด</label>
+                      <input type="text" class="inp" id="sys-province" placeholder="เช่น ขอนแก่น" value="">
+                    </div>
+                  </div>
+                  <div class="form-row cols-2">
+                    <div class="form-group">
+                      <label>ชื่อผู้อำนวยการโรงเรียน</label>
+                      <input type="text" class="inp" id="sys-director-name" placeholder="เช่น นายสมชาย ใจดี" value="">
+                    </div>
+                    <div class="form-group">
+                      <label>ชื่อหัวหน้าฝ่ายวิชาการ</label>
+                      <input type="text" class="inp" id="sys-academic-head-name" placeholder="เช่น นางสาวสมศรี มีดี" value="">
+                    </div>
+                  </div>
+                  <div class="form-row cols-2">
+                    <div class="form-group">
+                      <label>ชื่อเจ้าหน้าที่ทะเบียน</label>
+                      <input type="text" class="inp" id="sys-registrar-name" placeholder="เช่น นายสมศักดิ์ รักเรียน" value="">
+                    </div>
+                    <div class="form-group">
+                      <label>ปีการศึกษาปัจจุบัน (พ.ศ.)</label>
+                      <input type="text" class="inp" id="sys-academic-year" value="2569" oninput="window.updateTopbarBadge()">
+                    </div>
+                  </div>
+                  <div style="margin-top:16px">
+                    <button class="btn btn-primary" onclick="window.savePersonalInfo()" style="background:var(--green)">
+                      <span style="font-size:14px; margin-right:4px">👤</span> บันทึกข้อมูลประจำตัว
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 3: Cloudflare Configuration -->
+              <div class="card" style="margin-top:16px; margin-bottom:0" id="sys-firebase-card">
+                <div class="card-header">
+                  <h3>☁️ เชื่อมต่อ Cloud (Cloudflare)</h3>
+                </div>
+                <div class="card-body">
+                  <p style="font-size:11px; color:var(--text3); line-height:1.4; margin-bottom:12px">
+                    ป้อน URL ของแอปที่ปรับใช้งานบน Cloudflare เพื่อเปิดระบบซิงค์ข้อมูลข้ามอุปกรณ์และบันทึกแบบออฟไลน์
+                  </p>
+                  
+                  <div style="display:flex; flex-direction:column; gap:10px">
+                    <div class="form-group">
+                      <label style="font-size:11px; font-weight:600">Cloudflare App URL (API Base)</label>
+                      <input type="text" class="inp" id="sys-cf-api-url" placeholder="https://your-classroom-app.pages.dev">
+                      <small style="font-size:10px; color:var(--text3); display:block; margin-top:2px">*หากเว้นว่างไว้จะเชื่อมต่อโดยตรงกับโดเมนปัจจุบันของคุณ</small>
+                    </div>
+                  </div>
+
+                  <div style="margin-top:14px; display:flex; gap:10px">
+                    <button class="btn btn-primary" onclick="window.saveCloudflareConfig()" style="background:var(--accent); flex:1">
+                      💾 บันทึกการเชื่อมต่อ
+                    </button>
+                    <button class="btn btn-outline" onclick="window.clearCloudflareConfig()" style="color:var(--red); border-color:var(--red)">
+                      ล้างค่า
+                    </button>
+                  </div>
+                  
+                  <!-- Sync status and User Auth status -->
+                  <div id="sys-fb-status-area" style="margin-top:14px; padding:10px; border-radius:8px; background:var(--surface2); border:1px solid var(--border); display:none; flex-direction:column; gap:8px">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px">
+                      <span style="font-weight:600; color:var(--text2)">สถานะ Cloud:</span>
+                      <span id="sys-fb-status-badge" style="padding:2px 8px; border-radius:12px; font-size:11px; font-weight:800; background:var(--red-light); color:var(--red)">ไม่เชื่อมต่อ</span>
+                    </div>
+                    <div id="sys-fb-user-area" style="display:flex; justify-content:space-between; align-items:center; font-size:12px; border-top:1px solid var(--border); padding-top:8px">
+                      <span id="sys-fb-user-email" style="color:var(--text3); word-break:break-all">ยังไม่ได้เข้าสู่ระบบ</span>
+                      <button class="btn btn-outline btn-sm" id="btn-fb-logout" onclick="window.cloudflareLogout()" style="color:var(--red); border-color:var(--red); font-size:10px; padding:2px 6px">ออกจากระบบ</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Backups and Snapshots -->
+            <div style="display:flex; flex-direction:column; gap:16px">
+              <!-- Card 1: Local Backups -->
+              <div class="card" style="margin-bottom:0; display:flex; flex-direction:column">
+                <div class="card-header">
+                  <h3>ระบบแบ็กอัปและประวัติข้อมูล (Local Backups)</h3>
+                </div>
+                <div class="card-body" style="flex:1; display:flex; flex-direction:column; gap:16px">
+                  <p style="font-size:12px; color:var(--text2); line-height:1.6">
+                    แอปพลิเคชันนี้ทำงานแบบออฟไลน์ ข้อมูลจึงจัดเก็บในเบราว์เซอร์เครื่องนี้ คุณสามารถสร้างสแนปช็อตเก็บไว้ในความจำ หรือดาวน์โหลดเป็นไฟล์ JSON เก็บไว้ในโฟลเดอร์ Google Drive หรือคอมพิวเตอร์ของคุณเองเพื่อป้องกันข้อมูลสูญหาย หรือเพื่อย้ายไปใช้กับอุปกรณ์อื่นได้
+                  </p>
+                  <div class="rwd-grid-2col-compact">
+                    <button onclick="exportAllData()" class="btn btn-outline" style="justify-content:center; padding:10px; font-weight:600">
+                      <span style="font-size:14px; margin-right:4px">💾</span> ดาวน์โหลด JSON
+                    </button>
+                    <button onclick="document.getElementById('restore-file-input').click()" class="btn btn-outline" style="justify-content:center; padding:10px; font-weight:600; color:var(--green); border-color:var(--green); background:var(--green-light)">
+                      <span style="font-size:14px; margin-right:4px">📥</span> นำเข้าไฟล์ JSON
+                    </button>
+                  </div>
+
+                  <hr style="border:none; border-top:1px solid var(--border); margin:4px 0">
+
+                  <div style="display:flex; justify-content:space-between; align-items:center">
+                    <h4 style="font-size:13px; font-weight:700">รายการจุดสำรองข้อมูลภายในเครื่อง</h4>
+                    <button class="btn btn-primary btn-sm" onclick="window.createLocalSnapshot()" style="background:var(--teal)">
+                      + บันทึกจุดสแนปช็อต
+                    </button>
+                  </div>
+
+                  <div style="flex:1; overflow-y:auto; border:1px solid var(--border); border-radius:8px; background:var(--surface2)">
+                    <table class="tbl" style="font-size:12px">
+                      <thead>
+                        <tr>
+                          <th>เวลาบันทึก</th>
+                          <th>หัวข้อสำรอง</th>
+                          <th class="ctr" style="width:120px">คำสั่ง</th>
+                        </tr>
+                      </thead>
+                      <tbody id="snapshot-tbody">
+                        <tr>
+                          <td colspan="3" class="ctr" style="color:var(--text3); padding:32px 10px">
+                            ยังไม่มีการจัดการสแนปช็อตจุดคืนข้อมูลภายในระบบ
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2: Auto-Save Version History -->
+              <div class="card" style="margin-bottom:0; display:flex; flex-direction:column">
+                <div class="card-header" style="display:flex; justify-content:space-between; align-items:center">
+                  <h3>🕐 ประวัติการบันทึกอัตโนมัติ (ทุก 15 นาที)</h3>
+                  <span style="font-size:11px; color:var(--text3)">เก็บประวัติสูงสุด 100 รายการ</span>
+                </div>
+                <div class="card-body" style="display:flex; flex-direction:column; gap:12px; max-height:400px; overflow-y:auto; padding: 14px 16px;">
+                  <div id="settings-version-list" style="display:flex; flex-direction:column; gap:8px">
+                    <!-- Populated dynamically via JS -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== ATTENDANCE ===== -->
+        <div class="panel" id="panel-attendance">
+          <div id="att-main-view">
+            <!-- Main Attendance Tabs -->
+            <div class="att-tab-container">
+              <button id="att-main-tab-checkin" class="att-main-tab-btn active" onclick="window.switchAttendanceMainTab('checkin')">
+                📝 บันทึกเช็กชื่อ
+              </button>
+              <button id="att-main-tab-report" class="att-main-tab-btn" onclick="window.switchAttendanceMainTab('report')">
+                📊 รายงาน & สถิติ
+              </button>
+            </div>
+
+            <!-- Tab Content: Checkin (Calendar & Day Schedules) -->
+            <div id="att-tab-content-checkin">
+              <div class="att-layout-grid">
+                <!-- Left: Calendar Card -->
+                <div class="cal-card">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+                    <button onclick="window.changeCalendarMonth(-1)" class="btn btn-outline btn-sm" style="border:none; font-weight:bold; font-size:16px; width:32px; height:32px; padding:0; display:flex; justify-content:center; align-items:center; border-radius:50%">&lt;</button>
+                    <div style="display:flex; align-items:center; gap:8px">
+                      <span id="cal-month-year" style="font-size:15px; font-weight:800; color:var(--text)"></span>
+                      <button onclick="window.goToToday()" class="btn btn-outline btn-sm" style="font-size:10px; padding:2px 8px; height:22px; border-radius:12px; font-family:'Sarabun', sans-serif; font-weight:bold;">วันนี้</button>
+                    </div>
+                    <button onclick="window.changeCalendarMonth(1)" class="btn btn-outline btn-sm" style="border:none; font-weight:bold; font-size:16px; width:32px; height:32px; padding:0; display:flex; justify-content:center; align-items:center; border-radius:50%">&gt;</button>
+                  </div>
+                  
+                  <div style="display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); text-align:center; margin-bottom:6px; gap:4px; width:100%">
+                    <div style="color: var(--red); font-size:11px; font-weight:700">อา.</div>
+                    <div style="color: var(--text2); font-size:11px; font-weight:700">จ.</div>
+                    <div style="color: var(--text2); font-size:11px; font-weight:700">อ.</div>
+                    <div style="color: var(--text2); font-size:11px; font-weight:700">พ.</div>
+                    <div style="color: var(--text2); font-size:11px; font-weight:700">พฤ.</div>
+                    <div style="color: var(--text2); font-size:11px; font-weight:700">ศ.</div>
+                    <div style="color: var(--red); font-size:11px; font-weight:700">ส.</div>
+                  </div>
+                  
+                  <div id="cal-days-grid" class="cal-grid"></div>
+                  
+                  <!-- Legends -->
+                  <div style="border-top:1px solid var(--border); margin-top:14px; padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:8px 6px; font-size:10px; color:var(--text2)">
+                    <div style="display:flex; align-items:center; gap:5px">
+                      <span style="display:inline-block; width:12px; height:12px; border-radius:3px; border:1.5px solid var(--green); background:var(--green-light)"></span>
+                      <span>เช็กแล้ว</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:5px">
+                      <span style="display:inline-block; width:12px; height:12px; border-radius:3px; border:1.5px solid var(--red); background:var(--red-light)"></span>
+                      <span>ยังไม่เช็ก</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:5px">
+                      <span style="display:inline-block; width:12px; height:12px; border-radius:3px; border:1.5px solid var(--amber); background:var(--amber-light)"></span>
+                      <span>วันหยุด</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:5px">
+                      <span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:var(--surface2); border:1.5px solid var(--border)"></span>
+                      <span>เสาร์-อาทิตย์</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right: Date details & Schedule list -->
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 14px">
+                    <span style="font-size:18px">📅</span>
+                    <input type="date" id="att-date" class="inp"
+                      style="border:none;background:transparent;font-size:14px;font-weight:600;color:var(--text);outline:none;padding:0;width:140px"
+                      onchange="window.onAttDateChange()">
+                    <span id="att-day-label"
+                      style="font-size:13px;color:var(--text3);border-left:1px solid var(--border);padding-left:10px"></span>
+                    <button id="btn-set-holiday" onclick="window.toggleCustomHoliday()"
+                      style="font-size:12px; font-weight:600; padding:6px 12px; border-radius:6px; border:none; transition:all 0.2s; display:inline-flex; align-items:center; gap:4px; height:32px"></button>
+                    <div style="flex:1"></div>
+                    <div id="att-top-stats" style="display:flex;gap:8px"></div>
+                  </div>
+
+                  <div id="att-no-schedule" style="display:none">
+                    <div style="text-align:center;padding:48px 20px;background:var(--surface);border-radius:14px;border:1px solid var(--border)">
+                      <div style="font-size:40px;margin-bottom:8px">📭</div>
+                      <div style="font-size:14px;font-weight:600;color:var(--text2)">ไม่มีตารางเรียนในวันนี้</div>
+                      <div style="font-size:12px;color:var(--text3);margin-top:4px">ตั้งค่าตารางเรียนได้ที่เมนู "ตารางเรียน"</div>
+                    </div>
+                  </div>
+
+                  <div id="att-subject-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
+
+                  <div id="att-manual-select" style="display:none;margin-bottom:14px">
+                    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">ไม่มีตาราง — เลือกคาบด้วยตนเอง:</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap" id="att-manual-period-btns"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab Content: Summary Report -->
+            <div id="att-tab-content-report" style="display:none">
+              <!-- SUMMARY SECTION -->
+              <div id="att-summary-section" style="margin-top:4px">
+                <!-- VIEW: attendance summary -->
+                <div id="sum-view-summary">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+                    <div
+                      style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:7px 14px">
+                      <span style="font-size:12px;font-weight:600;color:var(--text3)">ช่วงเวลา</span>
+                      <input type="date" id="sum-from" class="inp"
+                        style="border:none;background:transparent;font-size:13px;font-weight:500;color:var(--text);outline:none;padding:0;width:130px">
+                      <span style="color:var(--text3);font-size:12px">ถึง</span>
+                      <input type="date" id="sum-to" class="inp"
+                        style="border:none;background:transparent;font-size:13px;font-weight:500;color:var(--text);outline:none;padding:0;width:130px">
+                      <button onclick="renderAttSummaryPage()"
+                        style="background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:Sarabun,sans-serif;white-space:nowrap">🔄
+                        โหลด</button>
+                    </div>
+                    <div style="flex:1"></div>
+                    <div
+                      style="display:flex;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+                      <button class="sumv-btn active" id="sumv-overview" onclick="switchSumView('overview')">📊 ภาพรวม</button>
+                      <button class="sumv-btn" id="sumv-daily" onclick="switchSumView('daily')">📅 รายวัน</button>
+                      <button class="sumv-btn" id="sumv-room-stats" onclick="switchSumView('room-stats')">🏫 ห้องเรียน</button>
+                    </div>
+                  </div>
+                  <div id="att-sum-page-content"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CHECKIN VIEW -->
+          <div id="att-checkin-view" style="display:none">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+              <button onclick="closeCheckin()"
+                style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);font-family:Sarabun,sans-serif;transition:all .15s"
+                onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='var(--surface)'">
+                ← กลับ
+              </button>
+              <div>
+                <div id="att-checkin-title" style="font-size:18px;font-weight:700;color:var(--text)"></div>
+                <div id="att-checkin-meta" style="font-size:12px;color:var(--text3);margin-top:1px"></div>
+              </div>
+              <div style="flex:1"></div>
+              <button class="btn btn-outline btn-sm" onclick="markAllPresent()">✅ มาทั้งหมด</button>
+              <button class="btn btn-primary" onclick="saveAttendance()">💾 บันทึก</button>
+            </div>
+
+            <div class="rwd-grid-5col">
+              <div style="background:var(--green-light);border-radius:8px;padding:8px 12px;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px">
+                <span style="font-size:12px;font-weight:700;color:var(--green)">✓ มาเรียน</span>
+                <span id="qs-P-pct" style="font-size:13px;font-weight:800;color:var(--green)">0%</span>
+                <span id="qs-P" style="display:none">0</span>
+              </div>
+              <div style="background:var(--amber-light);border-radius:8px;padding:8px 12px;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px">
+                <span style="font-size:12px;font-weight:700;color:var(--amber)">L มาสาย</span>
+                <span id="qs-L-pct" style="font-size:13px;font-weight:800;color:var(--amber)">0%</span>
+                <span id="qs-L" style="display:none">0</span>
+              </div>
+              <div style="background:var(--red-light);border-radius:8px;padding:8px 12px;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px">
+                <span style="font-size:12px;font-weight:700;color:var(--red)">✗ ขาดเรียน</span>
+                <span id="qs-A-pct" style="font-size:13px;font-weight:800;color:var(--red)">0%</span>
+                <span id="qs-A" style="display:none">0</span>
+              </div>
+              <div style="background:var(--teal-light);border-radius:8px;padding:8px 12px;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px">
+                <span style="font-size:12px;font-weight:700;color:var(--teal)">E ลา/ป่วย</span>
+                <span id="qs-E-pct" style="font-size:13px;font-weight:800;color:var(--teal)">0%</span>
+                <span id="qs-E" style="display:none">0</span>
+              </div>
+              <div style="background:var(--surface2);border-radius:8px;padding:8px 12px;border:1px solid var(--border);text-align:center;display:flex;align-items:center;justify-content:center;gap:6px">
+                <span style="font-size:12px;font-weight:700;color:var(--text3)">นักเรียนทั้งหมด</span>
+                <span id="qs-total" style="font-size:13px;font-weight:800;color:var(--text2)">0</span>
+                <span id="qs-att-pct" style="font-size:12px;color:var(--text3)">คน</span>
+              </div>
+            </div>
+
+            <!-- Period Switcher Bar (Image 3) -->
+            <div id="att-checkin-periods-bar"></div>
+
+            <div class="card">
+              <div
+                style="padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface2);border-radius:10px 10px 0 0;display:flex;align-items:center;gap:8px">
+                <span style="font-size:12px;font-weight:600;color:var(--text3)">รายชื่อนักเรียน —
+                  กดปุ่มเพื่อเปลี่ยนสถานะ</span>
+                <div style="flex:1"></div>
+                <span
+                  style="font-size:11px;background:var(--green-light);color:var(--green);padding:2px 8px;border-radius:6px;font-weight:700">✓
+                  มา</span>
+                <span
+                  style="font-size:11px;background:var(--amber-light);color:var(--amber);padding:2px 8px;border-radius:6px;font-weight:700">L
+                  สาย</span>
+                <span
+                  style="font-size:11px;background:var(--red-light);color:var(--red);padding:2px 8px;border-radius:6px;font-weight:700">✗
+                  ขาด</span>
+                <span
+                  style="font-size:11px;background:var(--teal-light);color:var(--teal);padding:2px 8px;border-radius:6px;font-weight:700">E
+                  ลา/ป่วย</span>
+              </div>
+              <div id="att-table-wrap"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== BEHAVIOR ===== -->
+        <div class="panel" id="panel-behavior">
+          <div class="beh-header-area">
+            <div class="beh-title-wrap">
+              <h2 style="font-size: 24px; font-weight: 800; margin: 0 0 4px 0;">จัดการคะแนนความประพฤติ</h2>
+              <p style="font-size: 13px; color: var(--text3); margin: 0;">เลือกนักเรียนเพื่อมอบรางวัลคะแนนความดี หรือลงคะแนนตักเตือนพฤติกรรมในชั้นเรียน</p>
+            </div>
+            <div class="beh-search-wrap">
+              <select id="beh-room-select" class="inp" style="width: 100%; border-radius: 20px; font-size: 13px; height: 38px; cursor: pointer; padding: 0 16px; background: var(--surface); color: var(--text); border: 1px solid var(--border);" onchange="window.switchClass(this.value)"></select>
+            </div>
+          </div>
+
+          <div class="beh-main-layout">
+            <!-- Left Column: Student Cards Grid -->
+            <div class="beh-grid-col">
+              <div id="beh-grid" class="beh-student-grid"></div>
+            </div>
+
+            <!-- Right Column: Sidebar (Leaderboard & Highlights) -->
+            <div class="beh-sidebar-col">
+              <!-- TOP 5 Leaderboard Card -->
+              <div class="card beh-sidebar-card">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding: 12px 16px;">
+                  <h3 style="margin: 0; font-size: 14px; font-weight: 700;">🏆 ทำเนียบความประพฤติดีเด่น</h3>
+                  <span class="beh-top5-badge" style="background: var(--teal-light); color: var(--teal); font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px; text-transform: uppercase;">TOP 5</span>
+                </div>
+                <div class="card-body" style="padding: 8px 0;" id="beh-leaderboard"></div>
+              </div>
+
+              <!-- Weekly Highlights Card -->
+              <div class="card beh-sidebar-card" style="margin-top: 16px;">
+                <div class="card-header" style="border-bottom: 1px solid var(--border); padding: 12px 16px;">
+                  <h3 style="margin: 0; font-size: 14px; font-weight: 700;">📊 พฤติกรรมเด่นในสัปดาห์นี้</h3>
+                </div>
+                <div class="card-body" style="padding: 16px;" id="beh-weekly-highlights"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+
+        <!-- ===== INDIVIDUAL STUDENT PROFILE PAGE ===== -->
+        <div class="panel" id="panel-student-profile-page">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px">
+            <span style="font-size:14px;font-weight:700;color:var(--text2);display:flex;align-items:center;gap:6px">👤 ข้อมูลนักเรียนรายบุคคล</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:12px;color:var(--text3)">ห้องเรียน</span>
+              <select id="profile-page-room-select" class="inp" style="width:130px;font-family:Sarabun,sans-serif" onchange="window.onProfilePageRoomChange()"></select>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px">
+              <input type="text" id="profile-page-search" class="inp" placeholder="🔍 ค้นหาด้วยชื่อ หรือ เลขประจำตัว..." style="width:100%;font-family:Sarabun,sans-serif" oninput="window.renderStudentProfilePage()">
+            </div>
+          </div>
+
+          <!-- Profile Page Student Grid -->
+          <div id="profile-page-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:20px;margin-top:15px"></div>
+
+          <!-- Empty state -->
+          <div id="profile-page-empty" style="display:none;text-align:center;padding:60px 20px;color:var(--text3);font-size:15px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:20px 0">
+            👤 ไม่มีข้อมูลนักเรียนในห้องเรียนนี้
+          </div>
+        </div>
+
+        <!-- ===== TEACHING: งาน & คะแนนเก็บ ===== -->
+        <div class="panel" id="panel-teaching">
+          <div
+            style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 14px">
+            <span style="font-size:13px;font-weight:700;color:var(--text2)">📋 งาน & คะแนนเก็บ</span>
+            <select id="work-room" class="inp" style="width:120px" onchange="onWorkRoomChange()"></select>
+            <select id="work-subject" class="inp" style="width:140px" onchange="renderWorkPanel()"></select>
+            <div style="flex:1"></div>
+            <div style="display:flex;gap:8px">
+              <div style="text-align:center;background:var(--teal-light);border-radius:8px;padding:5px 14px">
+                <div style="font-size:10px;color:var(--teal);font-weight:600">กรอกคะแนนแล้ว</div>
+                <div id="asn-total" style="font-size:18px;font-weight:800;color:var(--teal)">0</div>
+              </div>
+              <div style="text-align:center;background:var(--green-light);border-radius:8px;padding:5px 14px">
+                <div style="font-size:10px;color:var(--green);font-weight:600">ยังกรอกคะแนนไม่ครบ</div>
+                <div id="work-total-pts" style="font-size:18px;font-weight:800;color:var(--green)">0</div>
+              </div>
+              <div style="text-align:center;background:var(--amber-light);border-radius:8px;padding:5px 14px">
+                <div style="font-size:10px;color:var(--amber);font-weight:600">คะแนนเต็มรวม</div>
+                <div id="work-max-pts" style="font-size:18px;font-weight:800;color:var(--amber)">0</div>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="saveWorkScores()">💾 บันทึกคะแนน</button>
+          </div>
+
+          <!-- ═══ Grade Distribution Mini-Dashboard ═══ -->
+          <div id="work-grade-dash" style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:12px"></div>
+
+          <div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:14px">
+            <button class="phase-tab active" id="phase-tab-pre" onclick="switchPhase('pre')">ก่อนกลางภาค</button>
+            <button class="phase-tab" id="phase-tab-mid-exam" onclick="switchPhase('mid-exam')">สอบกลางภาค</button>
+            <button class="phase-tab" id="phase-tab-post" onclick="switchPhase('post')">หลังกลางภาค</button>
+            <button class="phase-tab" id="phase-tab-final" onclick="switchPhase('final')">สอบปลายภาค</button>
+            <button class="phase-tab" id="phase-tab-summary" onclick="switchPhase('summary')">📊 สรุปคะแนน</button>
+            <div style="flex:1"></div>
+            <button class="btn btn-outline btn-sm" id="export-summary-csv-btn" onclick="window.exportWorkSummaryCSV()"
+              style="margin-bottom:4px;font-size:12px;margin-right:8px;border-color:var(--green);color:var(--green);background:var(--green-light);display:none">📊 ส่งออกเป็น CSV</button>
+            <button class="btn btn-outline btn-sm" onclick="openAddWorkModal()"
+              style="margin-bottom:4px;font-size:12px">+ เพิ่มงาน</button>
+          </div>
+
+          <div id="work-phase-content"></div>
+        </div>
+
+        <!-- ===== MATERIALS ===== -->
+        <div class="panel" id="panel-materials">
+          <div class="rwd-grid-sidebar-left">
+            <div class="card" style="margin-bottom:0">
+              <div class="card-header" style="background:var(--surface2)">
+                <h3>➕ เพิ่มสื่อการสอน</h3>
+              </div>
+              <div class="card-body">
+                <div class="form-row">
+                  <div class="form-group"><label>ชื่อสื่อ *</label><input type="text" id="mat-name"
+                      placeholder="ชื่อสื่อหรือเนื้อหา"></div>
+                </div>
+                <div class="form-row cols-2">
+                  <div class="form-group"><label>ประเภท</label>
+                    <select id="mat-type"
+                      style="border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;font-family:Sarabun,sans-serif;outline:none;width:100%">
+                      <option>📄 ใบงาน</option>
+                      <option>🎥 วิดีโอ</option>
+                      <option>📊 สไลด์</option>
+                      <option>🔗 ลิงก์</option>
+                      <option>📝 เอกสาร</option>
+                      <option>🖼️ รูปภาพ</option>
+                    </select>
+                  </div>
+                  <div class="form-group"><label>วิชา</label><select id="mat-subject-sel"></select></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label>URL / ที่อยู่ไฟล์</label><input type="text" id="mat-url"
+                      placeholder="https://..."></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label>หมายเหตุ</label><input type="text" id="mat-note"
+                      placeholder="คำอธิบาย..."></div>
+                </div>
+                <button class="btn btn-primary" onclick="addMaterial()" style="width:100%">+ เพิ่มสื่อ</button>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:0">
+              <div class="card-header">
+                <h3>สื่อการสอนทั้งหมด</h3>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input class="inp" id="mat-search" placeholder="ค้นหา..." style="width:150px;font-size:12px"
+                    oninput="renderMaterials2()">
+                  <select id="mat-filter-type" class="inp" style="width:110px;font-size:12px"
+                    onchange="renderMaterials2()">
+                    <option value="">ทุกประเภท</option>
+                    <option>📄 ใบงาน</option>
+                    <option>🎥 วิดีโอ</option>
+                    <option>📊 สไลด์</option>
+                    <option>🔗 ลิงก์</option>
+                    <option>📝 เอกสาร</option>
+                  </select>
+                </div>
+              </div>
+              <div id="mat-grid"
+                style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;max-height:480px;overflow-y:auto">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== ASSESSMENT ===== -->
+        <div class="panel" id="panel-assessment">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:12px;font-weight:600;color:var(--text2)">ห้อง:</label>
+              <select id="asmnt-room" class="inp" style="width:120px"
+                onchange="populateAsmntSubjects();renderAssessment()"></select>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:12px;font-weight:600;color:var(--text2)">วิชา:</label>
+              <select id="asmnt-subject" class="inp" style="width:150px" onchange="renderAssessment()"></select>
+            </div>
+            <div style="flex:1"></div>
+            <div
+              style="display:flex;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+              <button class="asmnt-tab-btn active" id="atab-scores" onclick="switchAsmntTab('scores')">📝 คะแนน</button>
+              <button class="asmnt-tab-btn" id="atab-grades" onclick="switchAsmntTab('grades')">🏆 เกรด</button>
+              <button class="asmnt-tab-btn" id="atab-settings" onclick="switchAsmntTab('settings')">⚙ ตั้งค่า</button>
+            </div>
+          </div>
+
+          <!-- Scores panel -->
+          <div id="asmnt-scores-panel">
+            <div class="rwd-grid-4col">
+              <div style="background:var(--teal-light);border-radius:12px;padding:14px;text-align:center">
+                <div style="font-size:11px;font-weight:600;color:var(--teal)">คะแนนเฉลี่ย</div>
+                <div id="sc-avg" style="font-size:26px;font-weight:800;color:var(--teal)">-</div>
+              </div>
+              <div style="background:var(--purple-light);border-radius:12px;padding:14px;text-align:center">
+                <div style="font-size:11px;font-weight:600;color:var(--purple)">สูงสุด</div>
+                <div id="sc-max" style="font-size:26px;font-weight:800;color:var(--purple)">-</div>
+              </div>
+              <div style="background:var(--amber-light);border-radius:12px;padding:14px;text-align:center">
+                <div style="font-size:11px;font-weight:600;color:var(--amber)">ต่ำสุด</div>
+                <div id="sc-min" style="font-size:26px;font-weight:800;color:var(--amber)">-</div>
+              </div>
+              <div style="background:var(--red-light);border-radius:12px;padding:14px;text-align:center">
+                <div style="font-size:11px;font-weight:600;color:var(--red)">ต่ำกว่า 50%</div>
+                <div id="sc-fail" style="font-size:26px;font-weight:800;color:var(--red)">0</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h3>บันทึกคะแนน</h3>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input class="inp" id="sc-search" placeholder="ค้นหา..." style="width:140px;font-size:12px"
+                    oninput="renderScores()">
+                </div>
+              </div>
+              <div style="overflow-x:auto">
+                <table class="tbl" style="min-width:600px">
+                  <thead>
+                    <tr>
+                      <th>เลขที่</th>
+                      <th>ชื่อ-นามสกุล</th>
+                      <th class="ctr">📝 คะแนนเก็บ<br><span style="font-size:10px;font-weight:400">/100</span></th>
+                      <th class="ctr">📖 กลางภาค<br><span style="font-size:10px;font-weight:400">/100</span></th>
+                      <th class="ctr">📚 ปลายภาค<br><span style="font-size:10px;font-weight:400">/100</span></th>
+                      <th class="ctr">รวม</th>
+                      <th class="ctr">เกรด</th>
+                    </tr>
+                  </thead>
+                  <tbody id="score-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grades panel -->
+          <div id="asmnt-grades-panel" style="display:none">
+            <div class="rwd-grid-8col">
+              <div style="background:var(--green-light);border-radius:8px;padding:10px 4px;text-align:center">
+                <div style="font-size:11px;font-weight:700;color:var(--green)">เกรด 4</div>
+                <div id="g-cnt-4" style="font-size:20px;font-weight:800;color:var(--green)">0</div>
+              </div>
+              <div style="background:var(--green-light);border-radius:8px;padding:10px 4px;text-align:center">
+                <div style="font-size:11px;font-weight:700;color:var(--green)">เกรด 3.5</div>
+                <div id="g-cnt-35" style="font-size:20px;font-weight:800;color:var(--green)">0</div>
+              </div>
+              <div style="background:var(--teal-light);border-radius:8px;padding:10px 4px;text-align:center">
+                <div style="font-size:11px;font-weight:700;color:var(--teal)">เกรด 3</div>
+                <div id="g-cnt-3" style="font-size:20px;font-weight:800;color:var(--teal)">0</div>
+              </div>
+              <div style="background:var(--teal-light);border-radius:8px;padding:10px 4px;text-align:center">
+                <div style="font-size:11px;font-weight:700;color:var(--teal)">เกรด 2.5</div>
+                <div id="g-cnt-25" style="font-size:20px;font-weight:800;color:var(--teal)">0</div>
+              </div>
+              <div style="background:var(--amber-light);border-radius:8px;padding:10px 4px;text-align:center">
+                <div style="font-size:11px;font-weight:700;color:var(--amber)">เกรด 2</div>
+                <div id="g-cnt-2" style="font-size:20px;font-weight:800;color:var(--amber)">0</div>
+              </div>
+              <div style="background:var(--amber-light);border-radius:8px;padding:10px 4px;text-align:center">
+                <div style="font-size:11px;font-weight:700;color:var(--amber)">เกรด 1.5</div>
+                <div id="g-cnt-15" style="font-size:20px;font-weight:800;color:var(--amber)">0</div>
+              </div>
+              <div style="background:var(--coral-light);border-radius:8px;padding:10px 4px;text-align:center">
+                <div style="font-size:11px;font-weight:700;color:var(--coral)">เกรด 1</div>
+                <div id="g-cnt-1" style="font-size:20px;font-weight:800;color:var(--coral)">0</div>
+              </div>
+              <div style="background:var(--red-light);border-radius:8px;padding:10px 4px;text-align:center">
+                <div style="font-size:11px;font-weight:700;color:var(--red)">เกรด 0</div>
+                <div id="g-cnt-0" style="font-size:20px;font-weight:800;color:var(--red)">0</div>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-header">
+                <h3>การกระจายเกรด</h3><button class="btn btn-primary btn-sm"
+                  onclick="applyGrades();renderAssessment()">🔄 คำนวณเกรด</button>
+              </div>
+              <div class="card-body">
+                <div id="grade-dist-bar"
+                  style="height:12px;border-radius:6px;overflow:hidden;display:flex;margin-bottom:8px"></div>
+                <div id="grade-dist-legend" style="display:flex;gap:12px;font-size:12px;flex-wrap:wrap"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h3>รายชื่อและเกรด</h3>
+              </div>
+              <div style="overflow-x:auto">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th>เลขที่</th>
+                      <th>ชื่อ-นามสกุล</th>
+                      <th class="ctr">คะแนนเก็บ</th>
+                      <th class="ctr">กลางภาค</th>
+                      <th class="ctr">ปลายภาค</th>
+                      <th class="ctr">ประพฤติ</th>
+                      <th class="ctr">รวม</th>
+                      <th class="ctr">เกรด</th>
+                    </tr>
+                  </thead>
+                  <tbody id="grade-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Settings panel -->
+          <div id="asmnt-settings-panel" style="display:none">
+            <div class="rwd-grid-2col">
+              <div class="card">
+                <div class="card-header">
+                  <h3>⚖️ น้ำหนักคะแนน</h3>
+                </div>
+                <div class="card-body">
+                  <div class="weight-row"><label>📝 คะแนนเก็บ</label><input type="range" id="w1" min="0" max="100"
+                      value="30" oninput="updateWeights()"><span class="weight-val" id="w1v">30%</span></div>
+                  <div class="weight-row"><label>📖 สอบกลางภาค</label><input type="range" id="w2" min="0" max="100"
+                      value="30" oninput="updateWeights()"><span class="weight-val" id="w2v">30%</span></div>
+                  <div class="weight-row"><label>📚 สอบปลายภาค</label><input type="range" id="w3" min="0" max="100"
+                      value="30" oninput="updateWeights()"><span class="weight-val" id="w3v">30%</span></div>
+                  <div class="weight-row"><label>😊 ความประพฤติ</label><input type="range" id="w4" min="0" max="100"
+                      value="10" oninput="updateWeights()"><span class="weight-val" id="w4v">10%</span></div>
+                  <div id="w-sum"
+                    style="font-size:12px;color:var(--text3);margin-top:10px;padding:8px;background:var(--surface2);border-radius:7px">
+                    รวม: 100% ✅</div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-header">
+                  <h3>🏆 เกณฑ์การตัดเกรด</h3>
+                </div>
+                <div class="card-body">
+                  <div
+                    style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+                    <span class="badge badge-A" style="min-width:28px;justify-content:center">A</span>
+                    <label style="flex:1;font-size:13px">คะแนนขั้นต่ำ</label>
+                    <input type="number" id="th-A" value="80"
+                      style="width:70px;border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-family:Sarabun,sans-serif;outline:none;text-align:center">
+                  </div>
+                  <div
+                    style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+                    <span class="badge badge-B" style="min-width:28px;justify-content:center">B</span>
+                    <label style="flex:1;font-size:13px">คะแนนขั้นต่ำ</label>
+                    <input type="number" id="th-B" value="70"
+                      style="width:70px;border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-family:Sarabun,sans-serif;outline:none;text-align:center">
+                  </div>
+                  <div
+                    style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+                    <span class="badge badge-C" style="min-width:28px;justify-content:center">C</span>
+                    <label style="flex:1;font-size:13px">คะแนนขั้นต่ำ</label>
+                    <input type="number" id="th-C" value="60"
+                      style="width:70px;border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-family:Sarabun,sans-serif;outline:none;text-align:center">
+                  </div>
+                  <div
+                    style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+                    <span class="badge badge-D" style="min-width:28px;justify-content:center">D</span>
+                    <label style="flex:1;font-size:13px">คะแนนขั้นต่ำ</label>
+                    <input type="number" id="th-D" value="50"
+                      style="width:70px;border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-family:Sarabun,sans-serif;outline:none;text-align:center">
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px;padding:8px 0">
+                    <span class="badge badge-F" style="min-width:28px;justify-content:center">F</span>
+                    <span style="flex:1;font-size:13px;color:var(--text3)">ต่ำกว่าเกรด D</span>
+                  </div>
+                  <button class="btn btn-primary" style="width:100%;margin-top:10px"
+                    onclick="applyGrades();switchAsmntTab('grades')">คำนวณเกรดทั้งหมด →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Keep old panels for compat -->
+        <div class="panel" id="panel-assignments" style="display:none!important"></div>
+        <div class="panel" id="panel-scores" style="display:none!important"></div>
+        <div class="panel" id="panel-grades" style="display:none!important"></div>
+
+
+
+        <!-- ===== REPORT ===== -->
+        <div class="panel" id="panel-report">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:12px;font-weight:600;color:var(--text2)">ห้องเรียน:</label>
+              <select id="report-room" class="inp" style="width:130px" onchange="renderReport()"></select>
+            </div>
+            <div style="flex:1"></div>
+            <button class="btn btn-outline btn-sm" onclick="printReport()"
+              style="background:var(--accent);color:#fff;border-color:var(--accent)">🖨️ พิมพ์รายงาน ปพ.5 PDF</button>
+            <button class="btn btn-outline btn-sm" onclick="exportReport()">⬆ ส่งออก CSV</button>
+          </div>
+          <div class="rwd-grid-4col">
+            <div style="background:var(--green-light);border-radius:12px;padding:14px;text-align:center">
+              <div style="font-size:12px;font-weight:700;color:var(--green)">GPA 3.5 ขึ้นไป</div>
+              <div style="font-size:9px;color:var(--green);margin-bottom:4px">ดีเยี่ยม – ดีมาก</div>
+              <div id="r-gpa-a" style="font-size:28px;font-weight:800;color:var(--green)">0</div>
+              <div style="font-size:10px;color:var(--text3)">คน</div>
+            </div>
+            <div style="background:var(--teal-light);border-radius:12px;padding:14px;text-align:center">
+              <div style="font-size:12px;font-weight:700;color:var(--teal)">GPA 2.5 ขึ้นไป</div>
+              <div style="font-size:9px;color:var(--teal);margin-bottom:4px">ดี – ค่อนข้างดี</div>
+              <div id="r-gpa-b" style="font-size:28px;font-weight:800;color:var(--teal)">0</div>
+              <div style="font-size:10px;color:var(--text3)">คน</div>
+            </div>
+            <div style="background:var(--amber-light);border-radius:12px;padding:14px;text-align:center">
+              <div style="font-size:12px;font-weight:700;color:var(--amber)">GPA 1 ขึ้นไป</div>
+              <div style="font-size:9px;color:var(--amber);margin-bottom:4px">ปานกลาง – ผ่าน</div>
+              <div id="r-gpa-c" style="font-size:28px;font-weight:800;color:var(--amber)">0</div>
+              <div style="font-size:10px;color:var(--text3)">คน</div>
+            </div>
+            <div style="background:var(--red-light);border-radius:12px;padding:14px;text-align:center">
+              <div style="font-size:12px;font-weight:700;color:var(--red)">ไม่ผ่านเกณฑ์</div>
+              <div style="font-size:9px;color:var(--red);margin-bottom:4px">GPA ต่ำกว่า 1</div>
+              <div id="r-gpa-d" style="font-size:28px;font-weight:800;color:var(--red)">0</div>
+              <div style="font-size:10px;color:var(--text3)">คน</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h3>สรุปผลสัมฤทธิ์รายบุคคล</h3>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="tbl">
+                <thead id="report-thead">
+                  <tr>
+                    <th>เลขที่</th>
+                    <th>ชื่อ-นามสกุล</th>
+                    <!-- subject columns injected by renderReport() -->
+                    <th class="ctr">GPA เฉลี่ย</th>
+                    <th class="ctr">พฤติกรรม</th>
+                    <th class="ctr">%เข้าเรียน</th>
+                    <th class="ctr">สถานะ</th>
+                  </tr>
+                </thead>
+                <tbody id="report-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== REPORT & EXPORT ===== -->
+        <div class="panel" id="panel-report-export">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+            <div>
+              <h2 style="font-size:18px;font-weight:700">งานพิมพ์และส่งออกเอกสาร</h2>
+              <p style="font-size:12px;color:var(--text3);margin-top:2px">ดาวน์โหลดตารางคะแนนสะสม และเรนเดอร์พิมพ์ใบ ปพ.5 เสมือนจริง</p>
+            </div>
+          </div>
+
+          <!-- Single Unified Export Card -->
+          <div class="card" style="padding:22px;display:flex;flex-direction:column;gap:16px;margin-bottom:24px;box-shadow:var(--shadow)">
+            <h3 style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px">
+              📥 จัดทำและส่งออกเอกสารรายงานผลเรียน
+            </h3>
+            <p style="font-size:12px;color:var(--text2);line-height:1.6">
+              ดึงข้อมูลผลสัมฤทธิ์ทางการเรียน คะแนนพฤติกรรมสะสม และเปอร์เซ็นต์เวลาเรียนเข้าชั้นเรียนของนักเรียน โดยการระบุชั้นเรียนและเลือกรายวิชาเฉพาะเจาะจง หรือพิมพ์รายงาน ปพ.5 PDF ได้อย่างครบถ้วนและรวดเร็ว
+            </p>
+            
+            <div class="rwd-grid-2col-compact">
+              <div class="form-group">
+                <label style="font-weight:600;font-size:11px;color:var(--text2);margin-bottom:6px">1. เลือกชั้นเรียนสอน</label>
+                <select id="rep-exp-room-select" class="inp" style="cursor:pointer" onchange="window.switchClass(this.value)"></select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:600;font-size:11px;color:var(--text2);margin-bottom:6px">2. เลือกรายวิชาที่ต้องการ</label>
+                <select id="rep-exp-subject-select" class="inp" style="cursor:pointer;border-color:var(--accent)" onchange="window.onReportExportSubjectChange()"></select>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:8px;flex-wrap:wrap">
+              <button class="btn btn-outline" onclick="window.exportToExcelClicked()" style="border-color:var(--green);color:var(--green);font-weight:700;font-size:12px;padding:10px 16px">
+                🟢 ดาวน์โหลดเป็น Excel (.xlsx)
+              </button>
+              <button class="btn btn-outline" onclick="window.exportReportClicked()" style="border-color:var(--accent);color:var(--accent);font-weight:700;font-size:12px;padding:10px 16px">
+                🔵 ดาวน์โหลดเป็น CSV
+              </button>
+              <button class="btn btn-primary" onclick="window.printReportClicked()" style="background:var(--coral);border-color:var(--coral);color:#fff;font-weight:700;font-size:12px;padding:10px 16px">
+                🖨️ พิมพ์เอกสารใบ ปพ.5 (PDF)
+              </button>
+            </div>
+          </div>
+
+          <!-- Individual Student Report Card (ปพ.6 เสมือนจริง) -->
+          <div class="card" style="padding:22px;display:flex;flex-direction:column;gap:16px;margin-bottom:24px;box-shadow:var(--shadow)">
+            <h3 style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px">
+              📄 พิมพ์แบบรายงานผลการพัฒนาคุณภาพผู้เรียนรายบุคคล (ปพ.6 เสมือนจริง)
+            </h3>
+            <p style="font-size:12px;color:var(--text2);line-height:1.6">
+              จัดทำและพิมพ์แบบรายงานความคืบหน้า เกรด คะแนนสะสมรายเทอม (สเกลเต็ม 50 คะแนนต่อเทอม รวม 100 คะแนน) และหน่วยกิตสรุปรายวิชาพื้นฐานและเพิ่มเติมตามมาตรฐาน
+            </p>
+            
+            <div class="rwd-grid-2col">
+              <div class="form-group">
+                <label style="font-weight:600;font-size:11px;color:var(--text2);margin-bottom:6px">1. เลือกชั้นเรียน</label>
+                <select id="rep-individual-room-select" class="inp" style="cursor:pointer" onchange="window.switchClass(this.value)"></select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:600;font-size:11px;color:var(--text2);margin-bottom:6px">2. เลือกนักเรียนประเมินผล</label>
+                <select id="rep-individual-student-select" class="inp" style="cursor:pointer;border-color:var(--teal)"></select>
+              </div>
+            </div>
+            
+            <div class="rwd-grid-3col" style="margin-top:-8px">
+              <div class="form-group">
+                <label style="font-weight:600;font-size:11px;color:var(--text2);margin-bottom:6px">คุณลักษณะอันพึงประสงค์ (เริ่มต้น)</label>
+                <select id="rep-individual-attribute" class="inp" style="cursor:pointer">
+                  <option value="ดีเยี่ยม" selected>ดีเยี่ยม</option>
+                  <option value="ดี">ดี</option>
+                  <option value="ผ่าน">ผ่าน</option>
+                  <option value="ไม่ผ่าน">ไม่ผ่าน</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:600;font-size:11px;color:var(--text2);margin-bottom:6px">การอ่าน คิดวิเคราะห์ เขียน (เริ่มต้น)</label>
+                <select id="rep-individual-readwrite" class="inp" style="cursor:pointer">
+                  <option value="ดีเยี่ยม">ดีเยี่ยม</option>
+                  <option value="ดี" selected>ดี</option>
+                  <option value="ผ่าน">ผ่าน</option>
+                  <option value="ไม่ผ่าน">ไม่ผ่าน</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:600;font-size:11px;color:var(--text2);margin-bottom:6px">กิจกรรมพัฒนาผู้เรียน (เริ่มต้น)</label>
+                <select id="rep-individual-activity" class="inp" style="cursor:pointer">
+                  <option value="ผ่าน" selected>ผ่าน</option>
+                  <option value="ไม่ผ่าน">ไม่ผ่าน</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="window.printIndividualReport()" style="background:var(--teal);border-color:var(--teal);color:#fff;font-weight:700;font-size:12px;padding:10px 16px">
+                🖨️ พิมพ์แบบรายงานรายบุคคล (PDF)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== DASHBOARD ===== -->
+        <div class="panel" id="panel-dashboard">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+            <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--text)">📊 สรุปภาพรวมแดชบอร์ด</h2>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:12px;font-weight:600;color:var(--text2)">เลือกห้องเรียน:</span>
+              <select id="dash-room-select" class="inp" style="width:160px;font-family:Sarabun,sans-serif;font-size:12px;height:32px;padding:0 8px;border-radius:8px;cursor:pointer" onchange="window.renderDashboard()"></select>
+            </div>
+          </div>
+          <div class="rwd-grid-autofit" style="margin-bottom:14px">
+            <div class="stat-card stat-purple">
+              <div class="label">นักเรียนทั้งหมด</div>
+              <div class="value" id="d-total">0</div>
+              <div class="sub">คน</div>
+            </div>
+            <div class="stat-card stat-teal">
+              <div class="label">GPA เฉลี่ย</div>
+              <div class="value" id="d-gpa-avg">-</div>
+              <div class="sub">คะแนน</div>
+            </div>
+            <div class="stat-card stat-green">
+              <div class="label">คะแนนพฤติกรรมเฉลี่ย</div>
+              <div class="value" id="d-beh-avg">-</div>
+              <div class="sub">คะแนน</div>
+            </div>
+            <div class="stat-card stat-amber">
+              <div class="label">เวลาเรียนต่ำกว่า 80%</div>
+              <div class="value" id="d-att-risk">0</div>
+              <div class="sub">คน</div>
+            </div>
+            <div class="stat-card stat-red">
+              <div class="label">คะแนนรายวิชาต่ำกว่า 50%</div>
+              <div class="value" id="d-subj-risk">0</div>
+              <div class="sub">คน</div>
+            </div>
+            <div class="stat-card stat-coral">
+              <div class="label">พฤติกรรมต่ำกว่า 80</div>
+              <div class="value" id="d-beh-risk">0</div>
+              <div class="sub">คน</div>
+            </div>
+          </div>
+          <div class="dash-grid">
+            <div class="card" id="card-grade-distribution">
+              <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;flex-wrap:wrap;gap:8px">
+                <h3 style="margin:0">ภาพรวมผลการเรียน</h3>
+                <div style="display:flex;gap:4px;background:var(--surface2);padding:2px;border:1px solid var(--border);border-radius:8px">
+                  <button id="btn-chart-bar" class="btn btn-sm" style="font-size:11px;font-weight:600;border:none;background:var(--accent);color:#fff;padding:4px 10px;border-radius:6px;cursor:pointer;transition:all .15s" onclick="window.switchDashboardChart('bar')">📊 แผนภูมิแท่ง</button>
+                  <button id="btn-chart-pie" class="btn btn-sm" style="font-size:11px;font-weight:600;border:none;background:transparent;color:var(--text2);padding:4px 10px;border-radius:6px;cursor:pointer;transition:all .15s" onclick="window.switchDashboardChart('pie')">🍕 แผนภูมิวงกลม</button>
+                </div>
+              </div>
+              <div class="card-body" style="min-height:220px;display:flex;align-items:center;justify-content:center">
+                <div style="width:100%;height:100%">
+                  <div class="bar-chart" id="grade-chart"></div>
+                  <div id="grade-pie-chart" style="display:none;justify-content:center;align-items:center;gap:24px;padding:10px 0;width:100%"></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h3>การเข้าเรียนรายคน</h3>
+              </div>
+              <div class="card-body">
+                <div id="att-summary-dash" style="max-height:180px;overflow-y:auto"></div>
+              </div>
+            </div>
+          </div>
+          <div class="dash-grid">
+            <div class="card">
+              <div class="card-header">
+                <h3>⚠️ นักเรียนที่ต้องดูแลเป็นพิเศษ</h3>
+              </div>
+              <div class="card-body" id="risk-list" style="max-height:260px;overflow-y:auto"></div>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h3>🏆 อันดับนักเรียนพฤติกรรมยอดเยี่ยม (Top 3)</h3>
+              </div>
+              <div class="card-body" id="behavior-top-list" style="max-height:260px;overflow-y:auto"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== LIVE TEACHING MODE ===== -->
+        <div class="panel" id="panel-live-mode">
+          <!-- Class Goal Tracker Card -->
+          <div class="card" style="margin-bottom: 16px; padding: 14px 18px; border-radius: 12px; background: linear-gradient(135deg, rgba(5,122,255,0.05) 0%, rgba(20,184,166,0.05) 100%); border: 1px dashed var(--accent);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+              <span style="font-size: 13px; font-weight: 700; color: var(--text2); display: flex; align-items: center; gap: 6px;">
+                🎯 เป้าหมายห้องเรียน: <span id="live-goal-description" style="font-weight: 500;">สะสมคะแนนประจำคาบ</span>
+              </span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="live-goal-score-label" style="font-size: 12px; font-weight: 800; color: var(--accent); background: var(--surface); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border);">0 / 100 แต้ม</span>
+                <button class="btn btn-outline btn-sm" onclick="window.openEditLiveGoalModal()" style="font-size: 11px; padding: 3px 8px; height: 24px; border-radius: 6px; font-family: Sarabun, sans-serif;">✏️ แก้ไขเป้าหมาย</button>
+              </div>
+            </div>
+            <div style="height: 10px; background: rgba(0,0,0,0.05); border-radius: 6px; overflow: hidden; width: 100%;">
+              <div id="live-goal-progress-bar" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.3s ease;"></div>
+            </div>
+            <!-- Daily Leaderboard Row -->
+            <div id="live-today-leaderboard" style="margin-top: 10px; font-size: 11px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--text2); border-top: 1px solid var(--border); padding-top: 8px;">
+              🏆 อันดับสูงสุดวันนี้: <span style="color:var(--text3); font-style:italic;">ยังไม่มีคะแนนสะสมวันนี้</span>
+            </div>
+
+            <!-- Sync Behavior Score Checkbox -->
+            <div style="margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <label style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); font-weight: 700;" title="เมื่อตอบคำถาม ให้บันทึกลงประวัติพฤติกรรมสะสม (Behavior Points) ด้วย">
+                <input type="checkbox" id="live-sync-behavior" checked style="width: 16px; height: 16px; accent-color: var(--green);" onchange="window.onLiveSyncBehaviorChange(this.checked)">
+                💾 บันทึกคะแนนพฤติกรรมสะสม (Behavior Points)
+              </label>
+            </div>
+
+            <!-- Manual Point Awarding Dropdown -->
+            <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <label style="font-size: 11px; font-weight: 700; color: var(--text2); white-space: nowrap;">🙋‍♂️ ให้คะแนนนักเรียนตอบคำถามเอง (นอกรอบการสุ่ม):</label>
+              <div style="display: flex; gap: 6px; align-items: center; flex: 1; min-width: 200px;">
+                <select id="live-manual-student-select" class="inp" style="flex: 1; font-family: Sarabun, sans-serif; font-size: 12px; height: 32px; padding: 0 8px; border-radius: 8px; cursor: pointer;"></select>
+                <button class="btn btn-outline" onclick="window.awardManualStudentPointDirect()" style="border-color: var(--green); color: var(--green); background: var(--green-light); font-size: 11px; font-weight: 700; height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 4px; border-radius: 8px; cursor: pointer;">👍 +5 แต้ม</button>
+              </div>
+            </div>
+
+            <!-- Collapsible Point History Section -->
+            <div style="margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
+              <details style="width: 100%;">
+                <summary style="font-size: 12px; font-weight: 700; color: var(--text2); cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+                  <span>📜 ประวัติการให้คะแนนวันนี้ (<span id="live-history-count">0</span> รายการ)</span>
+                  <span style="font-size: 10px; color: var(--text3);">แตะเพื่อเปิด/ปิด</span>
+                </summary>
+                <div id="live-points-history-list" style="margin-top: 8px; max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
+                  <div style="font-size: 11px; color: var(--text3); font-style: italic; text-align: center; padding: 12px 0;">ยังไม่มีประวัติการให้คะแนนในคาบนี้</div>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <!-- Main Live Utilities & Action Buttons -->
+          <div class="card" style="margin-bottom: 16px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <label style="font-size: 12px; font-weight: 700; color: var(--text2)">เลือกชั้นเรียน/วิชา:</label>
+                <select id="live-subject-select" class="inp" style="width: 240px; font-family: Sarabun, sans-serif; font-size: 12px; height: 32px; padding: 0 8px; border-radius: 8px; cursor: pointer" onchange="window.onChangeLiveClassSubject()"></select>
+              </div>
+              <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                <button class="btn btn-outline btn-sm" onclick="window.openRandomSelectorModal()" style="font-size: 12px; padding: 6px 12px; font-weight: 700; font-family: Sarabun, sans-serif;">🎲 สุ่มเรียกชื่อ / ประชัน</button>
+                <button class="btn btn-outline btn-sm" onclick="window.openGroupModal()" style="font-size: 12px; padding: 6px 12px; font-weight: 700; font-family: Sarabun, sans-serif;">👥 สุ่มจัดกลุ่ม</button>
+                <button class="btn btn-outline btn-sm" onclick="window.openWheelModal()" style="font-size: 12px; padding: 6px 12px; font-weight: 700; font-family: Sarabun, sans-serif;">🎯 วงล้อภารกิจ</button>
+                <button class="btn btn-outline btn-sm" onclick="window.openBoardModal()" style="font-size: 12px; padding: 6px 12px; font-weight: 700; font-family: Sarabun, sans-serif;">📢 บอร์ดนำเสนอ</button>
+                <button class="btn btn-outline btn-sm" onclick="window.openPrepModal()" style="font-size: 12px; padding: 6px 12px; font-weight: 700; font-family: Sarabun, sans-serif;">🧠 กิจกรรมเตรียมพร้อม</button>
+                <button class="btn btn-primary btn-sm" onclick="window.toggleLiveTimer()" style="font-size: 12px; padding: 6px 12px; font-weight: 700; font-family: Sarabun, sans-serif; background: var(--teal); border-color: var(--teal);">⏱️ แผงควบคุมลอยตัว</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attendance Subtitle & Stats Bar -->
+          <div class="card" style="margin-bottom: 16px; padding: 12px 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div id="live-date-label" style="font-size: 13px; font-weight: 600; color: var(--text2)">วันนี้ · แตะการ์ดเพื่อสลับสถานะ</div>
+              <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                <span class="badge" style="background: var(--green-light); color: var(--green); font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 8px;">มา <span id="live-count-P">0</span></span>
+                <span class="badge" style="background: var(--red-light); color: var(--red); font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 8px;">ขาด <span id="live-count-A">0</span></span>
+                <span class="badge" style="background: var(--amber-light); color: var(--amber); font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 8px;">สาย <span id="live-count-L">0</span></span>
+                <span class="badge" style="background: var(--purple-light); color: var(--purple); font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 8px;">ลา <span id="live-count-E">0</span></span>
+                <button class="btn btn-outline btn-sm" onclick="window.quickCheckinLive()" style="font-size: 11px; font-weight: 700; padding: 4px 10px; height: auto;">✓ เช็กชื่อเร็ว</button>
+                <button class="btn btn-primary btn-sm" onclick="window.markAllLivePresent()" style="font-size: 11px; font-weight: 700; padding: 4px 10px; height: auto;">มาทั้งหมด</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Students Grid -->
+          <div id="live-student-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px;">
+            <!-- Populated by JS -->
+          </div>
+          
+          <style>
+            .live-student-card:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+              border-color: var(--accent) !important;
+            }
+            .live-student-card {
+              box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+              user-select: none;
+            }
+          </style>
+        </div>
+
+      </div><!-- /content -->
+    </div><!-- /main -->
+
+    <!-- BOTTOM NAVIGATION FOR MOBILE/TABLET SCREENS -->
+    <div class="bottom-nav">
+      <button class="bottom-nav-item active" onclick="goto('dashboard')">
+        <span class="bottom-nav-icon">🏠</span>
+        <span class="bottom-nav-label">Dashboard</span>
+      </button>
+      <button class="bottom-nav-item" onclick="goto('attendance')">
+        <span class="bottom-nav-icon">📅</span>
+        <span class="bottom-nav-label">เช็กชื่อ</span>
+      </button>
+      <button class="bottom-nav-item" onclick="goto('behavior')">
+        <span class="bottom-nav-icon">😊</span>
+        <span class="bottom-nav-label">พฤติกรรม</span>
+      </button>
+      <button class="bottom-nav-item" onclick="goto('teaching')">
+        <span class="bottom-nav-icon">✏️</span>
+        <span class="bottom-nav-label">งาน & คะแนน</span>
+      </button>
+      <button class="bottom-nav-item" onclick="window.toggleSidebar(true)">
+        <span class="bottom-nav-icon">☰</span>
+        <span class="bottom-nav-label">เมนู</span>
+      </button>
+    </div>
+  </div><!-- /app -->
+
+
+  <!-- SYNC SETTINGS MODAL REMOVED FOR LOCAL PREVIEW -->
+
+  <!-- IMPORT MODAL -->
+  <div class="modal-overlay" id="import-modal">
+    <div class="modal" style="width:640px; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.15); border: none;">
+      <!-- Header -->
+      <div style="background: var(--accent); padding: 18px 24px; color: #fff; display: flex; align-items: center; justify-content: space-between;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+          📂 นำเข้าข้อมูลรายชื่อนักเรียน
+        </h2>
+        <button onclick="closeModal('import-modal')" style="background: none; border: none; color: rgba(255,255,255,0.8); font-size: 24px; cursor: pointer; transition: color 0.15s; line-height: 1;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.8)'">&times;</button>
+      </div>
+      
+      <div style="padding: 24px;">
+        <!-- STATE 1: INITIAL UPLOAD & TEMPLATE DOWNLOAD -->
+        <div id="import-state-initial" style="display: block;">
+          <p style="font-size: 13px; color: var(--text2); margin: 0 0 20px 0; line-height: 1.6;">
+            คุณครูสามารถนำเข้าข้อมูลรายชื่อนักเรียนทีละมากๆ จากไฟล์ Excel (.xlsx, .xls) หรือ CSV ได้อย่างสะดวกและรวดเร็ว โดยการดาวน์โหลดเทมเพลตไปกรอกแล้วนำมาอัปโหลดที่นี่
+          </p>
+          
+          <!-- Download Template Section -->
+          <div style="background: var(--bg); border: 1.5px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+            <div style="font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+              📥 1. ดาวน์โหลดไฟล์เทมเพลตต้นแบบ
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <button class="btn btn-teal btn-sm" onclick="downloadTemplate('xlsx')" style="background: var(--green); color: #fff; border: none; font-weight: 600; flex: 1; justify-content: center; height: 36px; border-radius: 8px; font-family: Sarabun, sans-serif; cursor: pointer;">
+                🟢 ดาวน์โหลดเทมเพลต Excel (.xlsx)
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="downloadTemplate('csv')" style="flex: 1; justify-content: center; height: 36px; border-radius: 8px; font-family: Sarabun, sans-serif; cursor: pointer;">
+                ⚪ ดาวน์โหลดเทมเพลต CSV (.csv)
+              </button>
+            </div>
+          </div>
+          
+          <!-- Upload Box Section -->
+          <div style="font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 8px;">
+            📤 2. อัปโหลดไฟล์ที่กรอกข้อมูลเสร็จแล้ว
+          </div>
+          <div id="import-drop-zone" 
+               style="border: 2px dashed var(--accent); border-radius: 12px; padding: 32px 20px; text-align: center; background: rgba(5, 122, 255, 0.02); cursor: pointer; transition: all 0.2s;"
+               onmouseover="this.style.background='rgba(5, 122, 255, 0.05)';"
+               onmouseout="this.style.background='rgba(5, 122, 255, 0.02)';"
+               onclick="document.getElementById('import-file-selector').click()">
+            <div style="font-size: 40px; margin-bottom: 12px;">📁</div>
+            <div style="font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 6px;">คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</div>
+            <div style="font-size: 11px; color: var(--text3);">รองรับไฟล์รูปแบบ .xlsx, .xls หรือ .csv</div>
+            <input type="file" id="import-file-selector" accept=".xlsx,.xls,.csv" style="display: none;" onchange="importFile(this)">
+          </div>
+        </div>
+        
+        <!-- STATE 2: PREVIEW & CONFIRMATION -->
+        <div id="import-state-preview" style="display: none;">
+          <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;">
+            <div>
+              <div style="font-size: 11px; color: var(--text3); text-transform: uppercase; font-weight: 600;">ไฟล์ที่เลือก</div>
+              <div id="import-filename" style="font-size: 14px; font-weight: 700; color: var(--text2);"></div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="resetImportModal()" style="font-size: 11px; padding: 5px 12px; border-radius: 6px; font-family: Sarabun, sans-serif;">
+              🔄 เปลี่ยนไฟล์
+            </button>
+          </div>
+          
+          <!-- Options Grid -->
+          <div class="rwd-grid-2col" style="margin-bottom:16px">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 6px;">โหมดการจัดห้องเรียน</label>
+              <select id="import-mode" onchange="buildImportPreview()"
+                style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;font-family:Sarabun,sans-serif;outline:none;width:100%;background:var(--surface)">
+                <option value="auto">🤖 อัตโนมัติ — อ่านจากคอลัมน์ "ห้องเรียน" (สร้างใหม่ถ้าไม่มี)</option>
+                <option value="split">📋 แยกห้อง — อ่านจากคอลัมน์ "ห้องเรียน" (เฉพาะที่มีอยู่แล้ว)</option>
+                <option value="single">🏫 ห้องเดียว — นำเข้าทั้งหมดเข้าห้องที่เลือก</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 6px;">ห้องเรียนปลายทาง <span style="color:var(--text3)">(โหมด "ห้องเดียว")</span></label>
+              <select id="import-target-room"
+                style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;font-family:Sarabun,sans-serif;outline:none;width:100%;background:var(--surface)"></select>
+            </div>
+          </div>
+
+          <div id="import-has-room-info"
+            style="background:var(--green-light);color:var(--green);border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:16px;font-weight: 600;display: none;">
+            ✅ ไฟล์มีคอลัมน์ "ห้องเรียน" — ระบบจะจัดห้องให้อัตโนมัติตามข้อมูลในไฟล์
+          </div>
+
+          <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display: flex;justify-content: space-between;align-items: center;">
+            <span>📋 ตัวอย่างข้อมูลที่อ่านได้ (5 แถวแรก)</span>
+            <span id="import-total-rows-badge" style="background:var(--accent-light);color:var(--accent);font-size:10px;padding:2px 8px;border-radius:12px;font-weight:700;"></span>
+          </div>
+          
+          <div style="max-height:200px;overflow-y:auto;margin-bottom:20px;border:1px solid var(--border);border-radius:8px;background:var(--bg)">
+            <table class="tbl" style="font-size: 11px; margin-bottom: 0; width: 100%;">
+              <thead style="position: sticky; top: 0; background: var(--surface); z-index: 1;">
+                <tr>
+                  <th>เลขที่</th>
+                  <th style="color:var(--accent);font-weight:700">รหัสประจำตัว *</th>
+                  <th>ชื่อ-นามสกุล</th>
+                  <th>เพศ</th>
+                  <th>ห้องเรียน</th>
+                  <th>วันเกิด</th>
+                  <th>โทรศัพท์</th>
+                  <th>ชื่อเล่น</th>
+                </tr>
+              </thead>
+              <tbody id="import-preview-body"></tbody>
+            </table>
+          </div>
+
+          <div class="modal-footer" style="padding-top: 14px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px;">
+            <button class="btn btn-outline" onclick="resetImportModal()" style="border-radius: 8px; font-family: Sarabun, sans-serif;">ยกเลิก</button>
+            <button class="btn btn-primary" onclick="confirmImport()" style="border-radius: 8px; font-weight: 700; font-family: Sarabun, sans-serif;">✅ ยืนยันการนำเข้าเลย</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT STUDENT MODAL -->
+  <div class="modal-overlay" id="add-modal">
+    <div class="modal">
+      <h2 id="modal-student-title">เพิ่มนักเรียนใหม่</h2>
+      <input type="hidden" id="m-edit-id">
+      <div class="form-row cols-3">
+        <div class="form-group"><label>เลขที่</label><input type="number" id="m-no" placeholder="1"></div>
+        <div class="form-group"><label>รหัสประจำตัว *</label><input type="number" id="m-student-id" placeholder="รหัสประจำตัว"></div>
+        <div class="form-group"><label>เพศ</label><select id="m-gender">
+            <option>ชาย</option>
+            <option>หญิง</option>
+          </select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>ชื่อ-นามสกุล *</label><input type="text" id="m-name"
+            placeholder="เช่น เด็กชายสมชาย ใจดี"></div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group"><label>วันเกิด</label><input type="date" id="m-dob"></div>
+        <div class="form-group"><label>เบอร์โทร ผปค.</label><input type="text" id="m-phone" placeholder="08x-xxxxxxx">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>ห้องเรียน</label><select id="m-room"
+            style="border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;font-family:Sarabun,sans-serif;outline:none;width:100%"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>ชื่อเล่น</label><input type="text" id="m-health"
+            placeholder="ชื่อเล่น เช่น นนท์, บี"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('add-modal')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="submitStudent()">💾 บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MANAGE SUBJECTS MODAL -->
+  <div class="modal-overlay" id="subjects-modal">
+    <div class="modal">
+      <h2>⚙ จัดการรายวิชา</h2>
+      <div id="subject-list-edit" style="margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="new-subject-input" class="inp" placeholder="ชื่อวิชาใหม่" style="flex:1">
+        <button class="btn btn-primary" onclick="addSubject()">+ เพิ่ม</button>
+      </div>
+      <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('subjects-modal')">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+
+
+  <!-- RESTORE MODAL -->
+  <div class="modal-overlay" id="restore-modal">
+    <div class="modal" style="width:560px">
+      <h2>⬆ โหลดข้อมูลจากไฟล์สำรอง</h2>
+      <div id="restore-preview"
+        style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)">📋 ข้อมูลในไฟล์:</div>
+        <div id="restore-preview-content"></div>
+      </div>
+      <div
+        style="background:var(--red-light);border-radius:8px;padding:10px 14px;margin-bottom:14px;border:1px solid var(--red)">
+        <div style="font-size:12px;color:var(--red)">⚠️ การโหลดจะ<strong>แทนที่ข้อมูลปัจจุบัน</strong> ระบบจะบันทึก
+          snapshot ก่อน</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:16px;cursor:pointer">
+        <input type="checkbox" id="restore-merge" style="width:16px;height:16px">
+        รวมข้อมูล (merge) แทนที่จะแทนที่ทั้งหมด
+      </label>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('restore-modal')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="confirmRestore()"
+          style="background:var(--amber);border-color:var(--amber)">⬆ โหลด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT SEMESTER MODAL -->
+  <div class="modal-overlay" id="edit-semester-modal">
+    <div class="modal" style="width:400px; font-family: 'Sarabun', sans-serif;">
+      <h2>✏️ แก้ไขชื่อภาคเรียน</h2>
+      <input type="hidden" id="edit-sem-target-id">
+      <div class="form-row cols-2" style="margin-top: 14px; margin-bottom: 14px;">
+        <div class="form-group">
+          <label style="font-family: 'Sarabun', sans-serif;">ปีการศึกษา (พ.ศ.)</label>
+          <input type="text" id="edit-sem-year" class="inp" placeholder="เช่น 2570" style="font-weight: 600; font-family: 'Sarabun', sans-serif;">
+        </div>
+        <div class="form-group">
+          <label style="font-family: 'Sarabun', sans-serif;">ภาคเรียนที่</label>
+          <select id="edit-sem-term" class="inp" style="font-weight: 600; font-family: 'Sarabun', sans-serif; cursor: pointer;">
+            <option value="1">ภาคเรียนที่ 1</option>
+            <option value="2">ภาคเรียนที่ 2</option>
+            <option value="3">ภาคเรียนพิเศษ/ฤดูร้อน</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('edit-semester-modal')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="window.confirmEditSemester()">💾 บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLONE SEMESTER MODAL -->
+  <div class="modal-overlay" id="clone-semester-modal">
+    <div class="modal" style="width:460px; font-family: 'Sarabun', sans-serif;">
+      <h2>👥 โคลนข้อมูลภาคเรียน</h2>
+      <p id="clone-sem-source-title" style="font-size: 12px; color: var(--text2); margin-top: 4px; margin-bottom: 14px;">โคลนจาก: -</p>
+      <input type="hidden" id="clone-sem-source-id">
+      
+      <div class="card" style="margin-bottom: 16px; background: var(--surface2); padding: 14px; border: 1px dashed var(--border);">
+        <h4 style="font-size: 12px; font-weight: 700; margin-bottom: 10px; font-family: 'Sarabun', sans-serif;">🌟 ข้อมูลภาคเรียนใหม่ปลายทาง</h4>
+        <div class="form-row cols-2" style="margin-bottom: 0;">
+          <div class="form-group">
+            <label style="font-family: 'Sarabun', sans-serif;">ปีการศึกษาปลายทาง (พ.ศ.)</label>
+            <input type="text" id="clone-sem-year" class="inp" placeholder="เช่น 2570" style="font-weight: 600; font-family: 'Sarabun', sans-serif;">
+          </div>
+          <div class="form-group">
+            <label style="font-family: 'Sarabun', sans-serif;">ภาคเรียนที่ปลายทาง</label>
+            <select id="clone-sem-term" class="inp" style="font-weight: 600; font-family: 'Sarabun', sans-serif; cursor: pointer;">
+              <option value="1">ภาคเรียนที่ 1</option>
+              <option value="2">ภาคเรียนที่ 2</option>
+              <option value="3">ภาคเรียนพิเศษ/ฤดูร้อน</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 18px;">
+        <h4 style="font-size: 12px; font-weight: 700; margin-bottom: 10px; color: var(--text2); font-family: 'Sarabun', sans-serif;">เลือกข้อมูลที่ต้องการโคลนไปภาคเรียนใหม่:</h4>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="clone-opt-rooms" checked style="width:16px; height:16px;"> <span>🏫 รายชื่อห้องเรียน (Rooms)</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="clone-opt-students" checked style="width:16px; height:16px;"> <span>👥 รายชื่อนักเรียนทั้งหมด (Students)</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="clone-opt-subjects" checked style="width:16px; height:16px;"> <span>📚 รายวิชาที่เปิดสอน (Subjects)</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="clone-opt-schedules" checked style="width:16px; height:16px;"> <span>📅 ตารางคาบเรียน (Schedules)</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 0.7;">
+            <input type="checkbox" id="clone-opt-history" style="width:16px; height:16px;"> <span>📝 ข้อมูลผลคะแนน, พฤติกรรม, และการเช็กเวลาเรียน</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('clone-semester-modal')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="window.confirmCloneSemester()">👥 โคลนข้อมูล</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WORK MODAL -->
+  <div class="modal-overlay" id="work-modal">
+    <div class="modal" style="width:480px">
+      <h2 id="work-modal-title">➕ เพิ่มงาน / ชิ้นงาน</h2>
+      <input type="hidden" id="work-edit-id">
+      <div class="form-row">
+        <div class="form-group"><label>ชื่องาน *</label><input type="text" id="work-name" class="inp"
+            placeholder="เช่น ใบงานที่ 1"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div class="form-group" style="margin-bottom:0"><label>ช่วง</label>
+          <select id="work-phase" class="inp">
+            <option value="pre">ก่อนกลางภาค</option>
+            <option value="mid-exam">สอบกลางภาค</option>
+            <option value="post">หลังกลางภาค</option>
+            <option value="final">สอบปลายภาค</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0"><label>คะแนนเต็ม</label>
+          <input type="number" id="work-maxscore" class="inp" value="10" min="1" max="100">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div class="form-group" style="margin-bottom:0"><label>กำหนดส่ง</label><input type="date" id="work-due"
+            class="inp"></div>
+        <div class="form-group" style="margin-bottom:0"><label>ประเภท</label>
+          <select id="work-type" class="inp">
+            <option value="homework">📝 ใบงาน</option>
+            <option value="quiz">📋 สอบย่อย</option>
+            <option value="project">📁 โครงงาน</option>
+            <option value="activity">🎯 กิจกรรม</option>
+            <option value="exam">📖 สอบ</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>หมายเหตุ</label><input type="text" id="work-note" class="inp"
+            placeholder="คำอธิบาย..."></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('work-modal')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="submitWork()">💾 บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT CLASSROOM MODAL -->
+  <div class="modal-overlay" id="add-room-modal">
+    <div class="modal" style="width: 480px;">
+      <h2 id="modal-room-title">➕ สร้างห้องเรียนใหม่</h2>
+      <input type="hidden" id="edit-room-id">
+      <div class="form-row cols-2">
+        <div class="form-group"><label>ระดับชั้น</label>
+          <select id="room-level">
+            <optgroup label="มัธยมศึกษา">
+              <option>ม.1</option>
+              <option>ม.2</option>
+              <option selected>ม.3</option>
+              <option>ม.4</option>
+              <option>ม.5</option>
+              <option>ม.6</option>
+            </optgroup>
+            <optgroup label="ประถมศึกษา">
+              <option>ป.1</option>
+              <option>ป.2</option>
+              <option>ป.3</option>
+              <option>ป.4</option>
+              <option>ป.5</option>
+              <option>ป.6</option>
+            </optgroup>
+            <optgroup label="อนุบาล">
+              <option>อ.1</option>
+              <option>อ.2</option>
+              <option>อ.3</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="form-group"><label>ห้อง</label><input type="text" id="room-section" placeholder="1, 2, A"></div>
+      </div>
+      <div class="form-row cols-2" style="display:none;">
+        <div class="form-group"><label>ปีการศึกษา</label><input type="text" id="room-year" value="2568"></div>
+        <div class="form-group"><label>ภาคเรียน</label><select id="room-semester">
+            <option value="1">ภาคเรียนที่ 1</option>
+            <option value="2">ภาคเรียนที่ 2</option>
+          </select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>ครูที่ปรึกษา</label><input type="text" id="room-teacher" placeholder="ชื่อครูที่ปรึกษา"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>หมายเหตุ</label><textarea id="room-note" style="min-height:48px" placeholder="ข้อมูลเพิ่มเติม"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('add-room-modal')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="saveRoom()">💾 บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT SUBJECT MODAL -->
+  <div class="modal-overlay" id="add-subject-modal">
+    <div class="modal" style="width: 480px;">
+      <h2 id="modal-subj-title">➕ เพิ่มรายวิชา</h2>
+      <input type="hidden" id="edit-subj-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label>ชื่อวิชา *</label>
+          <input type="text" id="subj-name" placeholder="เช่น คณิตศาสตร์">
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label>รหัสวิชา</label>
+          <input type="text" id="subj-code" placeholder="MATH301">
+        </div>
+        <div class="form-group">
+          <label>หน่วยกิต</label>
+          <input type="number" id="subj-credits" value="1" min="0.5" step="0.5">
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label>ภาคเรียนที่เปิดสอน</label>
+          <select id="subj-term" class="inp" style="font-weight: 600; cursor: pointer; font-family: 'Sarabun', sans-serif;">
+            <option value="1">ภาคเรียนที่ 1</option>
+            <option value="2">ภาคเรียนที่ 2</option>
+            <option value="all">เรียนทั้งปีการศึกษา</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>ประเภทรายวิชา</label>
+          <select id="subj-type" class="inp" style="font-weight: 600; cursor: pointer; font-family: 'Sarabun', sans-serif;">
+            <option value="basic">สาระการเรียนรู้พื้นฐาน (Core)</option>
+            <option value="additional">สาระเพิ่มเติม (Elective)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>ห้องเรียนที่เรียนวิชานี้</label>
+          <div id="subj-rooms-check" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--border);border-radius:7px;min-height:40px"></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>ครูผู้สอน</label>
+          <input type="text" id="subj-teacher" placeholder="ชื่อครูผู้สอน">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>หมายเหตุ</label>
+          <input type="text" id="subj-note" placeholder="คำอธิบายวิชา">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cancelSubjEdit()">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="saveSubject()">💾 บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BEHAVIOR AWARD MODAL -->
+  <div class="modal-overlay" id="beh-points-modal">
+    <div class="modal" style="width: 520px; max-width: 90%; border-radius: 16px;">
+      <h2 id="beh-modal-title" style="margin: 0 0 4px 0; font-size: 20px; font-weight: 800;">ให้คะแนนความประพฤติ</h2>
+      <div style="font-size: 13px; margin-bottom: 16px; color: var(--text3);" id="beh-modal-subtitle">นักเรียน: </div>
+      
+      <!-- Pre-defined behaviors quick select grid -->
+      <div class="form-row" style="margin-bottom: 12px;">
+        <label style="font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 6px; display: block;">เลือกพฤติกรรมแนะนำ (แตะเพื่อเลือกด่วน)</label>
+        <div id="beh-quick-grid" class="beh-quick-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;"></div>
+      </div>
+      
+      <div class="form-row" style="margin-bottom: 12px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 6px; display: block;">ระบุรายละเอียดเพิ่มเติม</label>
+          <input type="text" id="beh-custom-note" class="inp" placeholder="หรือพิมพ์ระบุพฤติกรรมเองที่นี่..." style="font-size: 13px; height: 38px;">
+        </div>
+      </div>
+      
+      <div class="form-row cols-2" style="margin-bottom: 0;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 6px; display: block;">แต้มคะแนน (+/-)</label>
+          <input type="number" id="beh-custom-pts" class="inp" value="5" min="1" max="50" style="font-size: 13px; height: 38px;">
+        </div>
+        <input type="hidden" id="beh-modal-student-id">
+        <input type="hidden" id="beh-modal-type">
+      </div>
+      
+      <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeModal('beh-points-modal')" style="height: 38px; padding: 0 16px;">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="submitBehaviorPoints()" style="height: 38px; padding: 0 16px;">💾 บันทึกคะแนน</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INDIVIDUAL STUDENT PROFILE MODAL -->
+  <div class="modal-overlay" id="student-profile-modal">
+    <div class="modal" style="width: 580px; max-width: 95%; border-radius: 16px; padding: 24px;">
+      <div style="display: flex; justify-content: flex-end; margin-bottom: -20px; position: relative; z-index: 10;">
+        <span onclick="closeModal('student-profile-modal')" style="cursor: pointer; font-size: 24px; color: var(--text3); font-weight: bold; padding: 4px; line-height: 1;">&times;</span>
+      </div>
+      
+      <h2 style="font-size: 18px; font-weight: 800; margin: 0 0 16px 0; text-align: center;">ข้อมูลประวัตินักเรียนรายบุคคล</h2>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div id="std-profile-avatar-wrap" style="margin-bottom: 8px;"></div>
+        <h3 id="std-profile-name" style="font-size: 18px; font-weight: 800; margin: 0 0 4px 0; color: var(--text);">ด.ช. กิตติศักดิ์ เรียนดี</h3>
+        <p id="std-profile-details" style="font-size: 12px; color: var(--text3); margin: 0;">เลขประจำตัว: 10014 • ห้องเรียน: ม.3/1</p>
+      </div>
+
+      <!-- Stats row: Glass box -->
+      <div class="rwd-grid-3col" style="background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 8px; text-align: center; margin-bottom: 20px; box-shadow: var(--shadow);">
+        <div>
+          <div id="std-profile-gpa" style="font-size: 22px; font-weight: 800; color: var(--accent);">4.00</div>
+          <div style="font-size: 10px; color: var(--text3); margin-top: 4px;">เกรดเฉลี่ยสะสม</div>
+        </div>
+        <div style="border-left: 1px solid var(--border); border-right: 1px solid var(--border);">
+          <div id="std-profile-behavior" style="font-size: 22px; font-weight: 800; color: var(--purple);">112</div>
+          <div style="font-size: 10px; color: var(--text3); margin-top: 4px;">แต้มพฤติกรรม</div>
+        </div>
+        <div>
+          <div id="std-profile-att" style="font-size: 22px; font-weight: 800; color: var(--green);">100%</div>
+          <div style="font-size: 10px; color: var(--text3); margin-top: 4px;">เวลาเรียนเข้าเรียน</div>
+        </div>
+      </div>
+
+      <!-- Tabs navigation -->
+      <div style="display: flex; border-bottom: 1.5px solid var(--border); margin-bottom: 16px;">
+        <button id="std-profile-tab-scores" class="phase-tab active" onclick="window.switchStdProfileTab('scores')" style="flex: 1; text-align: center; padding: 8px 0; font-family: Sarabun, sans-serif; font-size: 13px; font-weight: 700; border: none; background: transparent; cursor: pointer;">คะแนนเก็บรายวิชา</button>
+        <button id="std-profile-tab-behaviors" class="phase-tab" onclick="window.switchStdProfileTab('behaviors')" style="flex: 1; text-align: center; padding: 8px 0; font-family: Sarabun, sans-serif; font-size: 13px; font-weight: 700; border: none; background: transparent; cursor: pointer;">ประวัติความประพฤติ</button>
+        <button id="std-profile-tab-attendance" class="phase-tab" onclick="window.switchStdProfileTab('attendance')" style="flex: 1; text-align: center; padding: 8px 0; font-family: Sarabun, sans-serif; font-size: 13px; font-weight: 700; border: none; background: transparent; cursor: pointer;">ประวัติการเช็กชื่อ</button>
+      </div>
+
+      <!-- Tab Content panels -->
+      <div id="std-profile-panel-scores" style="max-height: 240px; overflow-y: auto;">
+        <!-- Scores list -->
+      </div>
+      <div id="std-profile-panel-behaviors" style="max-height: 240px; overflow-y: auto; display: none;">
+        <!-- Behaviors log -->
+      </div>
+      <div id="std-profile-panel-attendance" style="max-height: 240px; overflow-y: auto; display: none;">
+        <!-- Attendance history log -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== LIVE TEACHING MODE MODALS & FLOATING WIDGET ==================== -->
+  
+  <!-- 1. RANDOM STUDENT SELECTOR MODAL (Single Roll + 1v1 Versus) -->
+  <div class="modal-overlay" id="live-random-modal">
+    <div class="modal" style="width: 520px; max-width: 95%; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+        <div style="display: flex; gap: 8px; background: var(--surface2); padding: 2px; border: 1px solid var(--border); border-radius: 8px;">
+          <button id="random-tab-single" class="btn btn-sm" style="font-size:12px; font-weight:600; border:none; padding:4px 12px; border-radius:6px; cursor:pointer;" onclick="window.switchRandomTab('single')">🎲 สุ่มรายบุคคล</button>
+          <button id="random-tab-versus" class="btn btn-sm" style="font-size:12px; font-weight:600; border:none; padding:4px 12px; border-radius:6px; cursor:pointer;" onclick="window.switchRandomTab('versus')">🥊 โหมดท้าดวล 1v1</button>
+        </div>
+        <span onclick="closeModal('live-random-modal')" style="cursor: pointer; font-size: 24px; color: var(--text3); font-weight: bold; line-height: 1;">&times;</span>
+      </div>
+
+      <!-- Shared Behavior Sync Toggle Checkbox -->
+      <div style="margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px dashed var(--border); display: flex; justify-content: center;">
+        <label style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); font-weight: 700;" title="เมื่อตอบคำถาม ให้บันทึกลงประวัติพฤติกรรมสะสม (Behavior Points) ด้วย">
+          <input type="checkbox" id="random-sync-behavior" checked style="width: 16px; height: 16px; accent-color: var(--green);" onchange="const mainCheck = document.getElementById('live-sync-behavior'); if (mainCheck) mainCheck.checked = this.checked;">
+          💾 บันทึกคะแนนพฤติกรรมสะสม (Behavior Points)
+        </label>
+      </div>
+
+      <!-- Tab Content: Single Random Selector -->
+      <div id="random-body-single">
+        <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 4px 0; color: var(--text);">🎲 สุ่มเรียกชื่อนักเรียน</h3>
+        <p style="font-size: 11px; color: var(--text3); margin-bottom: 16px;">สุ่มเลือกนักเรียนในชั้นเรียนเพื่อมีส่วนร่วมในการทำกิจกรรม</p>
+        
+        <div style="margin-bottom: 16px; display: flex; justify-content: center;">
+          <label style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); font-weight: 600;">
+            <input type="checkbox" id="random-only-present" checked style="width: 16px; height: 16px;">
+            สุ่มเฉพาะนักเรียนที่มาเรียนในวันนี้
+          </label>
+        </div>
+
+        <div style="height: 140px; display: flex; align-items: center; justify-content: center; background: var(--surface2); border: 2px dashed var(--border); border-radius: 12px; margin-bottom: 20px; overflow: hidden; position: relative;">
+          <div id="random-display-name" style="font-size: 32px; font-weight: 800; color: var(--text); text-align: center; width: 100%; transition: all 0.05s;">
+            พร้อมสุ่มรายชื่อ
+          </div>
+          <canvas id="random-confetti-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; display:none;"></canvas>
+        </div>
+
+        <button class="btn btn-primary" onclick="window.startRandomRoll()" style="width: 100%; justify-content: center; height: 40px; font-size: 14px; font-weight: 700;">
+          ✨ เริ่มสุ่มรายชื่อ
+        </button>
+
+        <div id="random-award-action" style="display: none; justify-content: center; gap: 10px; margin-top: 16px;">
+          <button class="btn btn-outline" onclick="window.awardRandomStudentPoint('pos')" style="border-color: var(--green); color: var(--green); font-size: 12px; font-weight: 700; background: var(--green-light); flex: 1; justify-content: center;">
+            👍 ให้แต้มบวก (+5)
+          </button>
+          <button class="btn btn-outline" onclick="window.awardRandomStudentPoint('neg')" style="border-color: var(--red); color: var(--red); font-size: 12px; font-weight: 700; background: var(--red-light); flex: 1; justify-content: center;">
+            👎 หักแต้มลบ (-5)
+          </button>
+        </div>
+
+        <!-- Manual Point Awarding & Leaderboard -->
+        <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; text-align: left;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text2); display: block; margin-bottom: 6px;">🙋‍♂️ ให้คะแนนนักเรียนตอบคำถามเอง (นอกรอบการสุ่ม):</label>
+          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
+            <select id="random-manual-student-select" class="inp" style="flex: 1; font-family: Sarabun, sans-serif; font-size: 12px; height: 32px; padding: 0 8px; border-radius: 8px; cursor: pointer;"></select>
+            <button class="btn btn-outline" onclick="window.awardManualStudentPoint()" style="border-color: var(--green); color: var(--green); background: var(--green-light); font-size: 11px; font-weight: 700; height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 4px;">👍 +5 แต้ม</button>
+          </div>
+          
+          <div id="random-modal-leaderboard" style="font-size: 11px; color: var(--text2); padding: 8px 10px; background: var(--surface2); border-radius: 8px; border: 1px solid var(--border);">
+            🏆 <strong>สะสมคะแนนสูงสุด 3 อันดับแรกวันนี้:</strong><br>
+            <span style="color:var(--text3); font-style:italic;">ยังไม่มีคะแนนสะสมวันนี้</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: 1v1 Versus -->
+      <div id="random-body-versus" style="display: none;">
+        <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 4px 0; color: var(--text);">🥊 โหมดท้าดวล 1v1</h3>
+        <p style="font-size: 11px; color: var(--text3); margin-bottom: 16px;">สุ่มนักเรียน 2 คนมาดวลตอบคำถามหน้าชั้นเรียน</p>
+
+        <div style="margin-bottom: 16px; display: flex; justify-content: center;">
+          <label style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); font-weight: 600;">
+            <input type="checkbox" id="versus-only-present" checked style="width: 16px; height: 16px;">
+            สุ่มเฉพาะนักเรียนที่มาเรียนในวันนี้
+          </label>
+        </div>
+
+        <!-- VS Screen -->
+        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; justify-content: center; background: var(--surface2); border: 2px dashed var(--border); border-radius: 12px; margin-bottom: 20px; padding: 20px 10px; position: relative; min-height: 140px;">
+          <!-- Player 1 -->
+          <div style="text-align: center; padding: 10px;">
+            <div style="font-size: 11px; color: var(--text3); margin-bottom: 6px;">ผู้ท้าชิงที่ 1</div>
+            <div id="versus-p1-name" style="font-size: 18px; font-weight: 800; color: var(--accent); min-height: 24px; word-break: break-all;">-</div>
+          </div>
+          <!-- VS Center Badge -->
+          <div style="background: var(--red); color: #fff; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 950; box-shadow: 0 4px 10px rgba(239,68,68,0.25);">VS</div>
+          <!-- Player 2 -->
+          <div style="text-align: center; padding: 10px;">
+            <div style="font-size: 11px; color: var(--text3); margin-bottom: 6px;">ผู้ท้าชิงที่ 2</div>
+            <div id="versus-p2-name" style="font-size: 18px; font-weight: 800; color: var(--accent); min-height: 24px; word-break: break-all;">-</div>
+          </div>
+          
+          <!-- Mid-bottom Timer inside VS -->
+          <div style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 700; color: var(--text3);">
+            เวลาตอบ: <span id="versus-timer-display" style="font-size: 13px; font-family: monospace; color: var(--text);">10</span> วินาที
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="window.startVersusRoll()" style="width: 100%; justify-content: center; height: 40px; font-size: 14px; font-weight: 700; background: var(--red); border-color: var(--red);">
+          🔥 เริ่มท้าดวล 1v1
+        </button>
+
+        <div id="versus-award-row" style="display: none; justify-content: center; gap: 20px; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px;">
+          <div style="flex: 1; text-align: center;">
+            <button class="btn btn-outline btn-sm" onclick="window.awardVersusWinner(1)" style="border-color: var(--green); color: var(--green); font-size: 11px; font-weight: 700; background: var(--green-light); width: 100%; justify-content: center; display: inline-flex; align-items: center;">🏆 คนที่ 1 ชนะ (+5)</button>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <button class="btn btn-outline btn-sm" onclick="window.awardVersusWinner(2)" style="border-color: var(--green); color: var(--green); font-size: 11px; font-weight: 700; background: var(--green-light); width: 100%; justify-content: center; display: inline-flex; align-items: center;">🏆 คนที่ 2 ชนะ (+5)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. GROUP GENERATOR MODAL -->
+  <div class="modal-overlay" id="live-group-modal">
+    <div class="modal" style="width: 550px; max-width: 95%; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 16px;">
+        <h3 style="font-size: 16px; font-weight: 800; margin: 0; color: var(--text);">👥 สุ่มจัดกลุ่มนักเรียน</h3>
+        <span onclick="closeModal('live-group-modal')" style="cursor: pointer; font-size: 24px; color: var(--text3); font-weight: bold; line-height: 1;">&times;</span>
+      </div>
+
+      <!-- Config Form -->
+      <div id="group-input-form">
+        <div class="form-row cols-2" style="margin-bottom: 14px;">
+          <div class="form-group">
+            <label style="font-size: 12px; font-weight: 700; color: var(--text2)">รูปแบบการแบ่ง</label>
+            <select id="group-mode-select" class="inp" style="font-size: 12px;">
+              <option value="count">แบ่งเป็นจำนวนกลุ่มทั้งหมด</option>
+              <option value="size">กำหนดสมาชิกต่อกลุ่ม</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label style="font-size: 12px; font-weight: 700; color: var(--text2)">จำนวน</label>
+            <input type="number" id="group-value-input" class="inp" value="4" min="2" style="font-size: 12px; font-weight: 700;">
+          </div>
+        </div>
+
+        <div style="margin-bottom: 18px;">
+          <label style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); font-weight: 600;">
+            <input type="checkbox" id="group-only-present" checked style="width: 16px; height: 16px;">
+            แบ่งเฉพาะนักเรียนที่เช็กชื่อว่ามา (มา/สาย) เท่านั้น
+          </label>
+        </div>
+
+        <button class="btn btn-primary" onclick="window.generateGroups()" style="width: 100%; justify-content: center; height: 38px; font-size: 13px; font-weight: 700;">
+          🤝 สุ่มสร้างกลุ่มนักเรียน
+        </button>
+      </div>
+
+      <!-- Result Screen -->
+      <div id="group-result-container" style="display: none;">
+        <div id="group-results" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; max-height: 320px; overflow-y: auto; padding: 4px; margin-bottom: 18px;">
+          <!-- JS Output -->
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-outline" onclick="document.getElementById('group-input-form').style.display='block'; document.getElementById('group-result-container').style.display='none';" style="flex: 1; justify-content: center;">⚙️ ปรับตัวเลือกใหม่</button>
+          <button class="btn btn-primary" onclick="window.copyGroupsToClipboard()" style="flex: 1.5; justify-content: center; background: var(--teal); border-color: var(--teal); display: inline-flex; align-items: center; gap: 4px;">📋 คัดลอกรายชื่อกลุ่ม</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. CHALLENGE WHEEL MODAL -->
+  <div class="modal-overlay" id="live-wheel-modal">
+    <div class="modal" style="width: 650px; max-width: 95%; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 16px;">
+        <h3 style="font-size: 16px; font-weight: 800; margin: 0; color: var(--text);">🎯 วงล้อนำโชคภารกิจ / คำถาม</h3>
+        <span onclick="closeModal('live-wheel-modal')" style="cursor: pointer; font-size: 24px; color: var(--text3); font-weight: bold; line-height: 1;">&times;</span>
+      </div>
+
+      <div class="rwd-grid-sidebar-right" style="align-items: center;">
+        <!-- Left: Canvas Wheel -->
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <div style="position: relative; width: 320px; height: 320px; border-radius: 50%; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 4px solid var(--border);">
+            <canvas id="wheel-canvas" width="312" height="312" style="border-radius: 50%; background: var(--surface2);"></canvas>
+          </div>
+          <button class="btn btn-primary" onclick="window.spinWheel()" style="margin-top: 16px; width: 180px; justify-content: center; font-weight: 700; height: 38px; display: inline-flex; align-items: center; gap: 4px;">
+            🌀 หมุนวงล้อ!
+          </button>
+        </div>
+        
+        <!-- Right: Option Editor -->
+        <div style="display: flex; flex-direction: column; gap: 10px; height: 320px;">
+          <label style="font-size: 12px; font-weight: 700; color: var(--text2)">รายการสุ่มในวงล้อ (พิมพ์บรรทัดละ 1 หัวข้อ)</label>
+          <textarea id="wheel-items-input" class="inp" style="flex: 1; font-size: 12px; line-height: 1.5; resize: none; font-family: Sarabun, sans-serif; padding: 8px 10px;" oninput="window.wheelItems = this.value.split('\n').map(x=>x.trim()).filter(Boolean); window.drawWheel();"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. PRESENTATION BOARD MODAL -->
+  <div class="modal-overlay" id="live-board-modal">
+    <div class="modal" style="width: 900px; max-width: 95%; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); min-height: 480px; border: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 16px;">
+        <h3 style="font-size: 16px; font-weight: 800; margin: 0; color: var(--text);">📢 บอร์ดนำเสนอ & กิจกรรม</h3>
+        <span onclick="closeModal('live-board-modal')" style="cursor: pointer; font-size: 24px; color: var(--text3); font-weight: bold; line-height: 1;">&times;</span>
+      </div>
+
+      <!-- Editor Panel -->
+      <div id="board-editor-wrap" style="height: 100%;">
+        <div class="rwd-grid-2col" style="margin-bottom: 16px;">
+          <!-- Text Area -->
+          <div class="form-group">
+            <label style="font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 6px;">พิมพ์ข้อความอักษรใหญ่ (กระดานประกาศ)</label>
+            <textarea id="board-text-input" class="inp" style="width: 100%; height: 280px; resize: none; font-family: Sarabun, sans-serif; font-size: 14px; line-height: 1.6; padding: 12px;"></textarea>
+          </div>
+          <!-- Image Upload & Preview -->
+          <div class="form-group" style="display: flex; flex-direction: column;">
+            <label style="font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 6px;">ภาพประกอบกิจกรรม / ผลงานนักเรียน (ออฟไลน์)</label>
+            <div style="flex: 1; border: 2px dashed var(--border); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--surface2); padding: 16px; cursor: pointer; overflow: hidden; position: relative;" onclick="document.getElementById('board-img-loader').click()">
+              <img id="board-img-preview" src="" style="max-height: 200px; max-width: 100%; display: none; object-fit: contain; margin-bottom: 8px;">
+              <div id="board-img-upload-prompt" style="text-align: center;">
+                <span style="font-size: 28px;">🖼️</span>
+                <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-top: 4px;">คลิกเพื่ออัปโหลดหรือเลือกรูปภาพ</div>
+              </div>
+              <input type="file" id="board-img-loader" accept="image/*" style="display: none;" onchange="window.handleBoardImageSelect(this)">
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="window.showBoardPresentation()" style="width: 100%; justify-content: center; height: 40px; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+          🖥️ เริ่มต้นแสดงผลแบบเต็มหน้าจอ (Projector Mode)
+        </button>
+      </div>
+
+      <!-- Presentation View Screen -->
+      <div id="board-view-wrap" style="display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 380px; padding: 10px; background: var(--surface2); border-radius: 12px; border: 1px solid var(--border);">
+        <div style="width: 100%; text-align: right; margin-bottom: 8px;">
+          <button class="btn btn-outline btn-sm" onclick="window.exitBoardPresentation()">🚪 ออกจากโหมดแสดงผล</button>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 20px; width: 100%; max-width: 780px;">
+          <div id="board-view-text" style="font-size: 26px; font-weight: 700; color: var(--text); line-height: 1.6; word-break: break-word;"></div>
+          <img id="board-view-image" src="" style="max-height: 260px; max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none;">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. MOOD CHECK & FOCUS BREATHER -->
+  <div class="modal-overlay" id="live-prep-modal">
+    <div class="modal" style="width: 520px; max-width: 95%; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 16px;">
+        <div style="display: flex; gap: 8px; background: var(--surface2); padding: 2px; border: 1px solid var(--border); border-radius: 8px;">
+          <button id="prep-tab-mood" class="btn btn-sm" style="font-size:12px; font-weight:600; border:none; padding:4px 12px; border-radius:6px; cursor:pointer;" onclick="window.switchPrepTab('mood')">😊 ตรวจสอบความรู้สึก</button>
+          <button id="prep-tab-breath" class="btn btn-sm" style="font-size:12px; font-weight:600; border:none; padding:4px 12px; border-radius:6px; cursor:pointer;" onclick="window.switchPrepTab('breath')">🧘 ฝึกสมาธิผ่อนคลาย</button>
+        </div>
+        <span onclick="closeModal('live-prep-modal')" style="cursor: pointer; font-size: 24px; color: var(--text3); font-weight: bold; line-height: 1;">&times;</span>
+      </div>
+
+      <!-- Tab 1: Mood Check -->
+      <div id="prep-body-mood">
+        <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 12px 0; color: var(--text); text-align: center;">วันนี้เด็กๆ รู้สึกอย่างไรกันบ้างคะ?</h3>
+        
+        <!-- Emoji Buttons Grid -->
+        <div class="rwd-grid-4col" style="margin-bottom: 24px;">
+          <button onclick="window.logMood('happy')" class="btn btn-outline" style="display: flex; flex-direction: column; padding: 14px 10px; gap: 8px; border-radius: 12px; font-size: 26px; border: 1.5px solid var(--border);">
+            <span>😊</span><span style="font-size: 11px; font-weight: 700; color: var(--text2)">สดชื่น</span>
+          </button>
+          <button onclick="window.logMood('normal')" class="btn btn-outline" style="display: flex; flex-direction: column; padding: 14px 10px; gap: 8px; border-radius: 12px; font-size: 26px; border: 1.5px solid var(--border);">
+            <span>😐</span><span style="font-size: 11px; font-weight: 700; color: var(--text2)">เฉยๆ</span>
+          </button>
+          <button onclick="window.logMood('sleepy')" class="btn btn-outline" style="display: flex; flex-direction: column; padding: 14px 10px; gap: 8px; border-radius: 12px; font-size: 26px; border: 1.5px solid var(--border);">
+            <span>🥱</span><span style="font-size: 11px; font-weight: 700; color: var(--text2)">ง่วงนอน</span>
+          </button>
+          <button onclick="window.logMood('excited')" class="btn btn-outline" style="display: flex; flex-direction: column; padding: 14px 10px; gap: 8px; border-radius: 12px; font-size: 26px; border: 1.5px solid var(--border);">
+            <span>🤩</span><span style="font-size: 11px; font-weight: 700; color: var(--text2)">ตื่นเต้น</span>
+          </button>
+        </div>
+
+        <!-- Live Mood Chart -->
+        <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+          <h4 style="font-size: 12px; margin: 0 0 16px 0; color: var(--text3); font-weight: 700;">📊 สรุปความพร้อมของห้องเรียน</h4>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); align-items: flex-end; height: 120px; gap: 16px; padding-bottom: 6px; border-bottom: 1.5px solid var(--border);">
+            <!-- Happy Bar -->
+            <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;">
+              <div id="mood-bar-happy" style="width: 28px; height: 5%; background: var(--green); border-radius: 4px; transition: height 0.3s ease;"></div>
+            </div>
+            <!-- Normal Bar -->
+            <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;">
+              <div id="mood-bar-normal" style="width: 28px; height: 5%; background: var(--accent); border-radius: 4px; transition: height 0.3s ease;"></div>
+            </div>
+            <!-- Sleepy Bar -->
+            <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;">
+              <div id="mood-bar-sleepy" style="width: 28px; height: 5%; background: var(--amber); border-radius: 4px; transition: height 0.3s ease;"></div>
+            </div>
+            <!-- Excited Bar -->
+            <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;">
+              <div id="mood-bar-excited" style="width: 28px; height: 5%; background: var(--purple); border-radius: 4px; transition: height 0.3s ease;"></div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; font-size: 11px; font-weight: 700; margin-top: 6px; color: var(--text2);">
+            <div>😊 (<span id="mood-count-happy">0</span>)</div>
+            <div>😐 (<span id="mood-count-normal">0</span>)</div>
+            <div>🥱 (<span id="mood-count-sleepy">0</span>)</div>
+            <div>🤩 (<span id="mood-count-excited">0</span>)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Focus Breather -->
+      <div id="prep-body-breath" style="display: none; text-align: center;">
+        <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 10px 0; color: var(--text);">🧘 กิจกรรมฝึกสมาธิ หายใจผ่อนคลาย</h3>
+        <p style="font-size: 12px; color: var(--text3); margin-bottom: 24px;">นั่งตัวตรง ผ่อนคลายหัวไหล่ และหายใจเข้าออกช้าๆ ตามจังหวะกล่องบนหน้าจอ</p>
+
+        <!-- Breathing Visualizer -->
+        <div style="height: 180px; display: flex; align-items: center; justify-content: center; margin-bottom: 24px; position: relative;">
+          <div id="breathing-circle" style="width: 60px; height: 60px; border-radius: 50%; background: var(--teal-light); border: 2px solid var(--teal); transition: all 1s ease-in-out; display: flex; align-items: center; justify-content: center;"></div>
+        </div>
+
+        <h4 id="breathing-instruction" style="font-size: 18px; font-weight: 800; color: var(--teal); min-height: 27px; margin-bottom: 24px;">เตรียมตัวทำสมาธิ หายใจเข้าออก</h4>
+
+        <button id="breathing-control-btn" class="btn btn-primary" onclick="window.startBreathingAnimation()" style="width: 200px; justify-content: center; font-weight: 700; height: 38px; margin: 0 auto; display: inline-flex; align-items: center; gap: 4px;">
+          ▶️ เริ่มฝึกสมาธิ (1 นาที)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. DRAGGABLE FLOATING UTILITIES WIDGET (Timer & Soundboard & Noise Meter) -->
+  <div id="live-floating-widget" style="display: none; position: fixed; bottom: 20px; right: 20px; z-index: 9999; width: 260px; background: var(--surface); border: 1.5px solid var(--border); border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.15); padding: 14px; font-family: 'Sarabun', sans-serif;">
+    <!-- Draggable Header -->
+    <div id="live-floating-widget-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; cursor: move; user-select: none;">
+      <span style="font-size: 12px; font-weight: 800; color: var(--text2); display: flex; align-items: center; gap: 4px;">🛠️ เครื่องมือช่วยสอนสด</span>
+      <span onclick="window.toggleLiveTimer()" style="cursor: pointer; font-size: 18px; color: var(--text3); font-weight: bold; line-height: 1;">&times;</span>
+    </div>
+
+    <!-- Part A: Timer & Stopwatch -->
+    <div style="border-bottom: 1px dashed var(--border); padding-bottom: 10px; margin-bottom: 10px;">
+      <!-- Mode Toggles -->
+      <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+        <button id="timer-mode-countdown" class="btn btn-sm" style="flex: 1; font-size: 9px; padding: 3px 6px; font-weight: 700; border: 1px solid var(--border);" onclick="window.setTimerMode('countdown')">นับถอยหลัง</button>
+        <button id="timer-mode-stopwatch" class="btn btn-sm" style="flex: 1; font-size: 9px; padding: 3px 6px; font-weight: 700; border: 1px solid var(--border);" onclick="window.setTimerMode('stopwatch')">จับเวลาเดินหน้า</button>
+      </div>
+      <!-- Timer Display -->
+      <div id="timer-display" style="font-size: 32px; font-weight: 800; text-align: center; color: var(--text); margin-bottom: 8px; font-family: monospace; letter-spacing: 1px; line-height: 1.1;">01:00</div>
+      <!-- Presets for Countdown -->
+      <div id="timer-presets" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 8px;">
+        <button class="btn btn-outline" style="font-size: 9px; padding: 3px; justify-content: center; height: 20px; display: inline-flex; align-items: center;" onclick="window.setTimerPreset(60)">1 น.</button>
+        <button class="btn btn-outline" style="font-size: 9px; padding: 3px; justify-content: center; height: 20px; display: inline-flex; align-items: center;" onclick="window.setTimerPreset(180)">3 น.</button>
+        <button class="btn btn-outline" style="font-size: 9px; padding: 3px; justify-content: center; height: 20px; display: inline-flex; align-items: center;" onclick="window.setTimerPreset(300)">5 น.</button>
+        <button class="btn btn-outline" style="font-size: 9px; padding: 3px; justify-content: center; height: 20px; display: inline-flex; align-items: center;" onclick="window.setTimerPreset(600)">10 น.</button>
+      </div>
+      <!-- Control Buttons -->
+      <div style="display: flex; gap: 6px;">
+        <button id="timer-btn-start" class="btn btn-primary btn-sm" onclick="window.startTimer()" style="flex: 2; height: 26px; font-size: 11px; font-weight: 700; justify-content: center; display: inline-flex; align-items: center;">เริ่ม</button>
+        <button id="timer-btn-reset" class="btn btn-outline btn-sm" onclick="window.resetTimer()" style="flex: 1; height: 26px; font-size: 11px; font-weight: 700; justify-content: center; display: inline-flex; align-items: center;">รีเซ็ต</button>
+      </div>
+    </div>
+
+    <!-- Part B: Soundboard Keyboard -->
+    <div style="border-bottom: 1px dashed var(--border); padding-bottom: 10px; margin-bottom: 10px;">
+      <div style="font-size: 11px; font-weight: 700; color: var(--text3); margin-bottom: 6px;">🔊 คีย์บอร์ดเสียงเอฟเฟกต์</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+        <button onclick="window.playLiveSound('bell')" class="btn btn-outline" style="font-size: 10px; padding: 4px; gap: 3px; justify-content: flex-start; height: 24px; border-radius: 6px; display: inline-flex; align-items: center;">
+          <span>🔔</span> กระดิ่ง
+        </button>
+        <button onclick="window.playLiveSound('drumroll')" class="btn btn-outline" style="font-size: 10px; padding: 4px; gap: 3px; justify-content: flex-start; height: 24px; border-radius: 6px; display: inline-flex; align-items: center;">
+          <span>🥁</span> กลองรัว
+        </button>
+        <button onclick="window.playLiveSound('applause')" class="btn btn-outline" style="font-size: 10px; padding: 4px; gap: 3px; justify-content: flex-start; height: 24px; border-radius: 6px; display: inline-flex; align-items: center;">
+          <span>👏</span> ตบมือ
+        </button>
+        <button onclick="window.playLiveSound('buzzer')" class="btn btn-outline" style="font-size: 10px; padding: 4px; gap: 3px; justify-content: flex-start; height: 24px; border-radius: 6px; display: inline-flex; align-items: center;">
+          <span>🚨</span> ผิดกติกา
+        </button>
+      </div>
+    </div>
+
+    <!-- Part C: Noise Meter -->
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <label style="cursor: pointer; font-size: 11px; font-weight: 700; color: var(--text3); display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" id="noise-meter-toggle" onchange="window.toggleNoiseMeter()" style="width: 14px; height: 14px;">
+          🎤 เครื่องวัดระดับเสียงห้องเรียน
+        </label>
+        <span id="noise-meter-val" style="font-size: 10px; font-weight: 700; color: var(--text3);">0%</span>
+      </div>
+      <!-- Progress Bar representing Volume -->
+      <div style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 6px; position: relative;">
+        <div id="noise-meter-bar" style="width: 0%; height: 100%; background: var(--green); transition: width 0.1s ease;"></div>
+      </div>
+      <!-- Threshold Control -->
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 9px; color: var(--text3);">
+        <span>เงียบ</span>
+        <input type="range" id="noise-threshold-input" min="10" max="100" value="60" style="flex: 1; height: 3px; cursor: pointer;">
+        <span>ดังมาก</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cloudflare Login and Auth Modal -->
+  <div class="modal-overlay" id="firebase-login-modal" style="z-index: 1100;">
+    <div class="modal" style="width: 440px; max-width: 95%; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: none; font-family: 'Sarabun', sans-serif;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-size: 40px; margin-bottom: 10px;">🔐</div>
+        <h3 style="font-size: 18px; font-weight: 800; margin: 0; color: var(--text)">เข้าสู่ระบบ Cloud Sync</h3>
+        <p style="font-size: 12px; color: var(--text3); margin: 6px 0 0 0">ล็อกอินเพื่อซิงค์ข้อมูลกับอุปกรณ์เครื่องอื่น (iPad, มือถือ, คอม)</p>
+      </div>
+
+      <!-- Auth Inputs -->
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px;">
+        <div class="form-group">
+          <label style="font-size: 12px; font-weight: 700; color: var(--text2)">อีเมลการใช้งาน (Email)</label>
+          <input type="email" class="inp" id="fb-login-email" placeholder="example@email.com" style="width: 100%">
+        </div>
+        <div class="form-group">
+          <label style="font-size: 12px; font-weight: 700; color: var(--text2)">รหัสผ่าน (Password)</label>
+          <input type="password" class="inp" id="fb-login-password" placeholder="อย่างน้อย 6 ตัวอักษร" style="width: 100%">
+        </div>
+      </div>
+
+      <!-- Error message display -->
+      <div id="fb-auth-error" style="display: none; color: var(--red); background: var(--red-light); padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; margin-bottom: 16px; text-align: center;"></div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button class="btn btn-primary" onclick="window.handleFirebaseLogin()" style="background: var(--teal); font-weight: 700; padding: 10px; justify-content: center; width: 100%;">
+          🔑 เข้าสู่ระบบ
+        </button>
+        <button class="btn btn-outline" onclick="window.handleFirebaseRegister()" style="color: var(--accent); border-color: var(--accent); font-weight: 700; padding: 10px; justify-content: center; width: 100%;">
+          ✨ สมัครบัญชีผู้ใช้ใหม่
+        </button>
+        
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 6px 0">
+        
+        <!-- Toggle Configuration Section -->
+        <button onclick="window.toggleLoginConfig()" class="btn btn-outline" style="border: none; font-size: 11px; color: var(--text3); padding: 4px; justify-content: center;">
+          ⚙️ ตั้งค่าการเชื่อมต่อ (Cloudflare URL)
+        </button>
+
+        <!-- Configuration Inputs inside Modal (Collapsible) -->
+        <div id="cf-login-config-area" style="display: none; flex-direction: column; gap: 8px; margin-top: 10px; padding: 12px; border: 1px dashed var(--border); border-radius: 8px; background: var(--surface2)">
+          <div class="form-group">
+            <label style="font-size: 10px; font-weight: 600">Cloudflare App URL (API Base)</label>
+            <input type="text" class="inp inp-sm" id="modal-cf-api-url" placeholder="https://your-classroom-app.pages.dev">
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="window.saveCloudflareConfigFromModal()" style="background: var(--surface); color: var(--text); justify-content: center; margin-top: 6px;">
+            💾 บันทึกและรีโหลดแอป
+          </button>
+        </div>
+
+        <button class="btn btn-outline" onclick="window.closeModal('firebase-login-modal')" style="color: var(--text3); border-color: var(--border); justify-content: center; padding: 6px; font-size: 12px; margin-top: 6px;">
+          ข้าม (ใช้งานแบบออฟไลน์เท่านั้น)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEQUENTIAL SCRIPT LOADING -->
+  <script src="modules/monster_engine.js"></script>
+  <script src="app.js"></script>
+  <script src="modules/live_mode.js"></script>
+  <script src="modules/rooms.js"></script>
+  <script src="modules/students.js"></script>
+  <script src="modules/subjects.js"></script>
+  <script src="modules/schedule.js"></script>
+  <script src="modules/attendance.js"></script>
+  <script src="modules/behavior.js"></script>
+  <script src="modules/teaching.js"></script>
+  <script src="modules/reports.js"></script>
+  <script src="modules/dashboard.js"></script>
+  <script src="modules/settings.js"></script>
+  <script src="modules/cloudflare_sync.js"></script>
+
+  <!-- INITIALIZATION -->
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      // Render current date
+      const updateCurrentDate = () => {
+        const d = new Date();
+        const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+        const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+        const dayName = days[d.getDay()];
+        const dateNum = d.getDate();
+        const monthName = months[d.getMonth()];
+        const yearBE = d.getFullYear() + 543;
+        const el = document.getElementById('today-date-display');
+        if (el) {
+          el.textContent = `วัน${dayName}ที่ ${dateNum} ${monthName} พ.ศ. ${yearBE}`;
+        }
+      };
+      updateCurrentDate();
+
+      // Check and migrate legacy autosave if any
+      if (window.migrateLegacyData) {
+        window.migrateLegacyData();
+      }
+
+      // Auto-purge trash semesters older than 90 days
+      if (window.runAutoPurgeTrash) {
+        window.runAutoPurgeTrash();
+      }
+
+      // Initial configuration sync
+      window.syncSubjectsToClassSubjects();
+      window.rebuildClassSelector();
+      window.renderPeriodSettings();
+
+      // Run late autosave restorations if active
+      if (window.currentSemesterId) {
+        window.checkAutoSave();
+        document.getElementById('semester-select-screen').style.display = 'none';
+        document.querySelector('.app').style.display = 'flex';
+      } else {
+        document.getElementById('semester-select-screen').style.display = 'flex';
+        document.querySelector('.app').style.display = 'none';
+        if (window.renderSemesterList) {
+          window.renderSemesterList();
+        }
+      }
+
+      // Ensure initial baseline snapshot is recorded if no versions exist
+      if (window.getVersions && window.getVersions().length === 0) {
+        window.snapshotVersion('เริ่มต้นใช้งาน');
+      } else if (window.updateUndoRedoButtons) {
+        window.updateUndoRedoButtons();
+      }
+
+      // Initial navigation
+      if (window.currentSemesterId) {
+        window.goto('setup-rooms');
+      }
+    });
+  </script>
+</body>
+
+</html>
