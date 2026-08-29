@@ -49,7 +49,7 @@ export const onRequestPost = async (context) => {
     const body = await context.request.json();
     const { semesters, trashSemesters, currentSemesterId, _exportedAt } = body;
 
-    const timestamp = _exportedAt || new Date().toISOString();
+    const timestamp = new Date().toISOString();
     const profile_data = JSON.stringify({ semesters, trashSemesters, currentSemesterId });
 
     await db

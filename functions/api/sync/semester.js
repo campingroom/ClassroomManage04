@@ -63,8 +63,23 @@ export const onRequestPost = async (context) => {
       return jsonResponse({ error: "กรุณาระบุ semester_id" }, 400);
     }
 
-    const timestamp = body._exportedAt || new Date().toISOString();
+    const timestamp = new Date().toISOString();
+    body._exportedAt = timestamp;
     const semester_data = JSON.stringify(body);
+
+    // Ensure the user_id exists in user_profiles to satisfy foreign key constraints
+    const defaultProfile = JSON.stringify({
+      semesters: [{ id: semesterId, name: semesterId }],
+      trashSemesters: [],
+      currentSemesterId: semesterId
+    });
+    await db
+      .prepare(`
+        INSERT OR IGNORE INTO user_profiles (user_id, profile_data, updated_at)
+        VALUES (?, ?, ?)
+      `)
+      .bind(userId, defaultProfile, timestamp)
+      .run();
 
     await db
       .prepare(`

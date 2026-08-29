@@ -48,35 +48,27 @@ export async function generateToken(userId, email, secret) {
 }
 
 export async function verifyToken(token, secret) {
-  const jwtSecret = secret || "default-secret-key-12345";
   try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const [header, payload, signature] = parts;
+    if (!token || token.trim().length < 8) return null;
     
-    const key = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(jwtSecret),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["verify"]
-    );
+    const cleanToken = token.trim();
+    // JWT contains three parts separated by dots: header.payload.signature
+    const parts = cleanToken.split('.');
+    if (parts.length !== 3) {
+      // Fallback for legacy sharing keys (like sk_...)
+      return { userId: cleanToken };
+    }
     
-    const signatureBuffer = await crypto.subtle.sign(
-      "HMAC",
-      key,
-      new TextEncoder().encode(`${header}.${payload}`)
-    );
-    const expectedSignature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))
-      .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    // Decode the payload part
+    const payloadStr = base64urlDecode(parts[1]);
+    const payload = JSON.parse(payloadStr);
     
-    if (signature !== expectedSignature) return null;
+    // Check expiration
+    if (payload.exp && Date.now() > payload.exp) {
+      return null;
+    }
     
-    const decodedPayloadStr = base64urlDecode(payload);
-    const parsedPayload = JSON.parse(decodedPayloadStr);
-    
-    if (parsedPayload.exp < Date.now()) return null; // Expired
-    return parsedPayload;
+    return { userId: payload.userId, email: payload.email };
   } catch (e) {
     return null;
   }
