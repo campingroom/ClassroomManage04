@@ -48,12 +48,20 @@ export async function generateToken(userId, email, secret) {
 }
 
 export async function verifyToken(token, secret) {
-  const jwtSecret = secret || "default-secret-key-12345";
   try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const [header, payload, signature] = parts;
-    
+    if (!token || token.trim().length < 8) return null;
+
+    const cleanToken = token.trim();
+    // JWT contains three parts separated by dots: header.payload.signature
+    const parts = cleanToken.split('.');
+    if (parts.length !== 3) {
+      // Legacy sharing-key login was removed; only signed JWTs are accepted.
+      return null;
+    }
+    const [headerB64, payloadB64, signatureB64] = parts;
+
+    // Verify the HMAC signature before trusting anything in the payload.
+    const jwtSecret = secret || "default-secret-key-12345";
     const key = await crypto.subtle.importKey(
       "raw",
       new TextEncoder().encode(jwtSecret),
@@ -61,22 +69,25 @@ export async function verifyToken(token, secret) {
       false,
       ["verify"]
     );
-    
-    const signatureBuffer = await crypto.subtle.sign(
+    const signatureBytes = Uint8Array.from(base64urlDecode(signatureB64), c => c.charCodeAt(0));
+    const isValid = await crypto.subtle.verify(
       "HMAC",
       key,
-      new TextEncoder().encode(`${header}.${payload}`)
+      signatureBytes,
+      new TextEncoder().encode(`${headerB64}.${payloadB64}`)
     );
-    const expectedSignature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))
-      .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-    
-    if (signature !== expectedSignature) return null;
-    
-    const decodedPayloadStr = base64urlDecode(payload);
-    const parsedPayload = JSON.parse(decodedPayloadStr);
-    
-    if (parsedPayload.exp < Date.now()) return null; // Expired
-    return parsedPayload;
+    if (!isValid) return null;
+
+    // Decode the payload part
+    const payloadStr = base64urlDecode(payloadB64);
+    const payload = JSON.parse(payloadStr);
+
+    // Check expiration
+    if (payload.exp && Date.now() > payload.exp) {
+      return null;
+    }
+
+    return { userId: payload.userId, email: payload.email };
   } catch (e) {
     return null;
   }

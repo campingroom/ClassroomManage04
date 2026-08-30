@@ -46,10 +46,20 @@ export const onRequestPost = async (context) => {
     }
 
     const userId = decoded.userId;
+
+    // The session's userId may no longer exist (e.g. account deleted, or a
+    // stale token from before the database was reset). Writing with a
+    // dangling user_id would violate the FOREIGN KEY on user_profiles, so
+    // surface it as an auth error the client can recover from instead.
+    const userExists = await db.prepare("SELECT 1 FROM users WHERE id = ?").bind(userId).first();
+    if (!userExists) {
+      return jsonResponse({ error: "บัญชีผู้ใช้นี้ไม่มีอยู่ในระบบแล้ว กรุณาเข้าสู่ระบบใหม่", code: "USER_NOT_FOUND" }, 401);
+    }
+
     const body = await context.request.json();
     const { semesters, trashSemesters, currentSemesterId, _exportedAt } = body;
 
-    const timestamp = _exportedAt || new Date().toISOString();
+    const timestamp = new Date().toISOString();
     const profile_data = JSON.stringify({ semesters, trashSemesters, currentSemesterId });
 
     await db

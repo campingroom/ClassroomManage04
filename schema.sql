@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
-  created_at TEXT DEFAULT (datetime('now', 'localtime'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
 CREATE TABLE IF NOT EXISTS user_profiles (
@@ -22,3 +22,4 @@ CREATE TABLE IF NOT EXISTS user_semesters (
   PRIMARY KEY (user_id, semester_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+

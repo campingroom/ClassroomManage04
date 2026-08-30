@@ -54,8 +54,19 @@ export const onRequestPost = async (context) => {
     }
 
     const userId = decoded.userId;
+
+    // The session's userId may no longer exist (e.g. account deleted, or a
+    // stale token from before the database was reset). Both user_profiles
+    // and user_semesters have a FOREIGN KEY straight to users(id), so check
+    // this up front instead of letting the INSERT below fail with a raw
+    // D1 constraint error the client can't recover from.
+    const userExists = await db.prepare("SELECT 1 FROM users WHERE id = ?").bind(userId).first();
+    if (!userExists) {
+      return jsonResponse({ error: "บัญชีผู้ใช้นี้ไม่มีอยู่ในระบบแล้ว กรุณาเข้าสู่ระบบใหม่", code: "USER_NOT_FOUND" }, 401);
+    }
+
     const body = await context.request.json();
-    
+
     const url = new URL(context.request.url);
     const semesterId = url.searchParams.get("semester_id") || body.semester_id || body.currentSemesterId;
 
@@ -63,8 +74,24 @@ export const onRequestPost = async (context) => {
       return jsonResponse({ error: "กรุณาระบุ semester_id" }, 400);
     }
 
-    const timestamp = body._exportedAt || new Date().toISOString();
+    const timestamp = new Date().toISOString();
+    body._exportedAt = timestamp;
     const semester_data = JSON.stringify(body);
+
+    // Also seed a default user_profiles row so a semester-first sync (no
+    // profile pushed yet) has something for GET /sync/profile to find.
+    const defaultProfile = JSON.stringify({
+      semesters: [{ id: semesterId, name: semesterId }],
+      trashSemesters: [],
+      currentSemesterId: semesterId
+    });
+    await db
+      .prepare(`
+        INSERT OR IGNORE INTO user_profiles (user_id, profile_data, updated_at)
+        VALUES (?, ?, ?)
+      `)
+      .bind(userId, defaultProfile, timestamp)
+      .run();
 
     await db
       .prepare(`
