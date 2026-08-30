@@ -50,24 +50,43 @@ export async function generateToken(userId, email, secret) {
 export async function verifyToken(token, secret) {
   try {
     if (!token || token.trim().length < 8) return null;
-    
+
     const cleanToken = token.trim();
     // JWT contains three parts separated by dots: header.payload.signature
     const parts = cleanToken.split('.');
     if (parts.length !== 3) {
-      // Fallback for legacy sharing keys (like sk_...)
-      return { userId: cleanToken };
+      // Legacy sharing-key login was removed; only signed JWTs are accepted.
+      return null;
     }
-    
+    const [headerB64, payloadB64, signatureB64] = parts;
+
+    // Verify the HMAC signature before trusting anything in the payload.
+    const jwtSecret = secret || "default-secret-key-12345";
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(jwtSecret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+    const signatureBytes = Uint8Array.from(base64urlDecode(signatureB64), c => c.charCodeAt(0));
+    const isValid = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      signatureBytes,
+      new TextEncoder().encode(`${headerB64}.${payloadB64}`)
+    );
+    if (!isValid) return null;
+
     // Decode the payload part
-    const payloadStr = base64urlDecode(parts[1]);
+    const payloadStr = base64urlDecode(payloadB64);
     const payload = JSON.parse(payloadStr);
-    
+
     // Check expiration
     if (payload.exp && Date.now() > payload.exp) {
       return null;
     }
-    
+
     return { userId: payload.userId, email: payload.email };
   } catch (e) {
     return null;

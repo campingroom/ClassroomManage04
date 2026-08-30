@@ -552,7 +552,7 @@ window.reconnectSemesterSync = function(uid) {
 
 // Pull Profile and Semester Data from Cloudflare
 window.pullAllDataFromCloudflare = async function(silent = false) {
-  if (!window.firebaseUser) return;
+  if (!window.firebaseUser || window.firebaseUser.isLocal) return;
   
   const token = localStorage.getItem('cf_auth_token');
   if (!token) return;
@@ -689,7 +689,7 @@ window.pullAllDataFromCloudflare = async function(silent = false) {
 
 window.pullSemesterDataFromCloudflare = async function(silent = false) {
   const semId = window.currentSemesterId;
-  if (!semId || !window.firebaseUser) return;
+  if (!semId || !window.firebaseUser || window.firebaseUser.isLocal) return;
 
   const token = localStorage.getItem('cf_auth_token');
   if (!token) return;
@@ -794,7 +794,7 @@ window.pullSemesterDataFromCloudflare = async function(silent = false) {
 // Push Data to Cloudflare
 
 window.performProfilePush = async function() {
-  if (!window.firebaseUser) return;
+  if (!window.firebaseUser || window.firebaseUser.isLocal) return;
   const token = localStorage.getItem('cf_auth_token');
   if (!token) return;
 
@@ -814,7 +814,13 @@ window.performProfilePush = async function() {
         currentSemesterId: window.currentSemesterId
       })
     });
-    
+
+    if (res.status === 401) {
+      window.addSyncLog('เซสชันหมดอายุหรือบัญชีถูกลบ กรุณาเข้าสู่ระบบใหม่', 'error');
+      window.cloudflareLogout(true);
+      return;
+    }
+
     if (!res.ok) {
       let errMsg = 'เซิร์ฟเวอร์ตอบกลับมีข้อผิดพลาด';
       try {
@@ -851,7 +857,7 @@ window.performProfilePush = async function() {
 
 window.performSemesterPush = async function() {
   const semId = window.currentSemesterId;
-  if (!semId || !window.firebaseUser) return;
+  if (!semId || !window.firebaseUser || window.firebaseUser.isLocal) return;
   const token = localStorage.getItem('cf_auth_token');
   if (!token) return;
 
@@ -868,7 +874,13 @@ window.performSemesterPush = async function() {
       },
       body: JSON.stringify(data)
     });
-    
+
+    if (res.status === 401) {
+      window.addSyncLog('เซสชันหมดอายุหรือบัญชีถูกลบ กรุณาเข้าสู่ระบบใหม่', 'error');
+      window.cloudflareLogout(true);
+      return;
+    }
+
     if (!res.ok) {
       let errMsg = 'เซิร์ฟเวอร์ตอบกลับมีข้อผิดพลาด';
       try {
@@ -906,7 +918,7 @@ window.pushGlobalProfileToCloudflare = async function(isManual = false) {
   if (!isManual && localStorage.getItem('cf_auto_save') === 'false') {
     return;
   }
-  if (!window.firebaseUser) return;
+  if (!window.firebaseUser || window.firebaseUser.isLocal) return;
 
   if (!isManual) {
     localStorage.setItem('cf_has_unsynced_profile', 'true');
@@ -928,7 +940,7 @@ window.pushSemesterDataToCloudflare = async function(isManual = false) {
   if (!isManual && localStorage.getItem('cf_auto_save') === 'false') {
     return;
   }
-  if (!window.firebaseUser || !window.currentSemesterId) return;
+  if (!window.firebaseUser || window.firebaseUser.isLocal || !window.currentSemesterId) return;
 
   const semId = window.currentSemesterId;
 
